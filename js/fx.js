@@ -16,8 +16,8 @@
     for (let i = 0; i < n; i++)
       add({ x: x + (Math.random() - 0.5) * 8, y: y + 1, vx: (Math.random() - 0.5) * 40, vy: 20 + Math.random() * 30, g: 120, life: 0.5, max: 0.5, kind: 'px', color: colorOn() ? '#b9b2a6' : '#bdbdba', size: 1.4 });
   };
-  FX.sparkle = function (x, y) {
-    add({ x, y, vx: 0, vy: 14, g: 0, life: 0.7, max: 0.7, kind: 'spark', color: '#ffffff', size: 1.3 });
+  FX.sparkle = function (x, y, gold) {
+    add({ x, y, vx: (Math.random() - 0.5) * 8, vy: 14, g: 0, life: 0.7, max: 0.7, kind: 'spark', color: gold ? '#ffe08a' : '#ffffff', size: 1.3 });
   };
   FX.hearts = function (x, y) {
     for (let i = 0; i < 3; i++)
@@ -139,6 +139,14 @@
         ctx.lineWidth = Math.max(1, 2 * z * (1 - k));
         ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke();
         ctx.globalAlpha = 1;
+      } else if (e.type === 'portal') {
+        if (T.Z !== (e.z || 0)) continue;
+        const [px, py] = T.w2s(e.x, 10);
+        const zz = z * T.layerK(e.z);
+        ctx.strokeStyle = `rgba(195,166,255,${1 - k})`; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(px, py, (6 + k * 18) * zz, (14 + k * 10) * zz, 0, 0, Math.PI * 2); ctx.stroke();
+      } else if (e.type === 'layer') {
+        ctx.fillStyle = `rgba(255,255,255,${(1 - k) * 0.35})`; ctx.fillRect(0, 0, T.cam.W, T.cam.H);
       } else if (e.type === 'zone') {
         const [a] = T.w2s(e.x0, 0), [b, gy] = T.w2s(e.x1, 0);
         const g = ctx.createLinearGradient(0, gy - 120 * z * (1 - k), 0, gy);
@@ -168,24 +176,45 @@
   // ── structure completion ─────────────────────────────────
   FX.complete = function (st, def, sh, reward, isBp) {
     const B = T.B;
-    if (isBp) T.main.hitstop(0.09);
-    effects.push({ type: 'sweep', x: st.x, y: 0, w: sh.w * B, h: sh.h * B, t: 0, dur: 1.1 });
+    if (!isBp) { // builders' own works finish quietly
+      for (let i = 0; i < 6; i++) add({ x: st.x + Math.random() * sh.w * B, y: (st.y || 0) + sh.h * B, vx: 0, vy: 18, g: 0, life: 0.9, max: 0.9, kind: 'spark', color: '#ffffff', size: 1.2 });
+      return;
+    }
+    T.main.hitstop(0.09);
+    effects.push({ type: 'sweep', x: st.x, y: st.y || 0, w: sh.w * B, h: sh.h * B, t: 0, dur: 1.1 });
     const cols = colorOn() ? ['#e9b872', '#e07a5f', '#81b29a', '#5b8fb9', '#b388eb', '#4ecdc4', '#ffd166'] : ['#2b2b2b', '#8a8a88', '#c8c8c5', '#ffffff'];
-    const n = isBp ? 60 : 22;
-    setTimeout(() => {
-      for (let i = 0; i < n; i++) add({ x: st.x + Math.random() * sh.w * B, y: sh.h * B + 10, vx: (Math.random() - 0.5) * 160, vy: 80 + Math.random() * 200, g: 260, life: 1.6 + Math.random(), max: 2.6, kind: 'confetti', color: cols[i % cols.length], size: 1.3 });
-    }, 650);
-    if (isBp || def.tier >= 2) { T.audio.complete(); setTimeout(() => T.ui.stamp(def, reward, isBp && (T.G.s.bps.done[def.id] || 0) <= 1), 500); }
-    else { T.audio.unlock(); floatText(st.x + (sh.w * B) / 2, sh.h * B + 14, `${def.name} 완성  +${T.fmt(reward)}`, true); }
+    setTimeout(() => { for (let i = 0; i < 60; i++) add({ x: st.x + Math.random() * sh.w * B, y: (st.y || 0) + sh.h * B + 10, vx: (Math.random() - 0.5) * 160, vy: 80 + Math.random() * 200, g: 260, life: 1.6 + Math.random(), max: 2.6, kind: 'confetti', color: cols[i % cols.length], size: 1.3 }); }, 650);
+    T.audio.complete();
+    setTimeout(() => T.ui.stamp(def, reward, (T.G.s.bps.done[def.id] || 0) <= 1), 500);
   };
   FX.demolish = function (st, sh) {
     const B = T.B;
-    for (let i = 0; i < Math.min(80, sh.cells.length); i++) {
-      const c = sh.cells[Math.floor(Math.random() * sh.cells.length)];
-      add({ x: st.x + c.c * B + B / 2, y: Math.max(1, c.r * B), vx: (Math.random() - 0.5) * 140, vy: 40 + Math.random() * 160, g: 380, life: 0.9 + Math.random() * 0.5, max: 1.4, kind: 'px', color: T.st.colorOf(c.ch, false), size: 2.4 });
+    for (let i = 0; i < Math.min(60, sh.blocks.length); i++) {
+      const k = Math.floor(Math.random() * sh.blocks.length), c = sh.blocks[k];
+      add({ x: st.x + c.c * B + B / 2, y: Math.max(1, (st.y || 0) + c.r * B), vx: (Math.random() - 0.5) * 140, vy: 40 + Math.random() * 160, g: 380, life: 0.9 + Math.random() * 0.5, max: 1.4, kind: 'px', color: T.st.tint(T.st.blockColor(st, k), false), size: 2.4 });
     }
     for (let i = 0; i < 18; i++) add({ x: st.x + Math.random() * sh.w * B, y: 2, vx: (Math.random() - 0.5) * 60, vy: 10 + Math.random() * 30, g: -10, life: 1.6, max: 1.6, kind: 'puff', color: colorOn() ? '#d8cfc0' : '#cfcfcc', size: 6 + Math.random() * 6 });
     T.audio.thunk();
+  };
+  FX.debris = function (x, y, col) {
+    if (T.cam.z < 0.3) return;
+    for (let i = 0; i < 4; i++) add({ x, y, vx: (Math.random() - 0.5) * 120, vy: 30 + Math.random() * 120, g: 380, life: 0.8, max: 0.8, kind: 'px', color: col, size: 2 });
+    add({ x, y, vx: 0, vy: 12, g: -6, life: 1, max: 1, kind: 'puff', color: colorOn() ? '#d8cfc0' : '#cfcfcc', size: 5 });
+  };
+  FX.chips = function (x, y, col) {
+    if (T.cam.z < 0.35) return;
+    for (let i = 0; i < 3; i++) add({ x: x + (Math.random() - 0.5) * 6, y: y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * 90, vy: 30 + Math.random() * 70, g: 300, life: 0.5, max: 0.5, kind: 'px', color: Math.random() < 0.5 ? '#ffffff' : col, size: 1 });
+  };
+  FX.portal = function (x, z) {
+    effects.push({ type: 'portal', x, z, t: 0, dur: 0.9 });
+    if (z === 0) for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2; add({ x: x + Math.cos(a) * 10, y: 10 + Math.sin(a) * 10, vx: -Math.cos(a) * 30, vy: -Math.sin(a) * 30 + 20, g: 0, life: 0.7, max: 0.7, kind: 'spark', color: '#c3a6ff', size: 1.2 }); }
+  };
+  FX.layerOpen = function () { effects.push({ type: 'layer', t: 0, dur: 1.6 }); };
+  FX.banner = function (title, sub) {
+    const el = T.h(`<div class="banner"><b>${title}</b><span>${sub}</span></div>`);
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('in'));
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 700); }, 4200);
   };
   FX.ghost = function (x, y) {
     add({ x, y, vx: 0, vy: 22, g: 0, life: 3.2, max: 3.2, kind: 'ghost', color: '#ffffff', size: 1.2 });
@@ -215,9 +244,21 @@
     if (FX.busy) return;
     FX.busy = true;
     const L = T.G.L[n];
-    const firstColor = n === 2 && !T.G.s.flags.color;
-    const firstPainter = n === 3 && !T.G.s.flags.painter;
-    const firstSettle = n === 4 && !T.G.s.flags.l4Done;
+    const firstColor = n === 3 && !T.G.s.flags.color;
+    const firstPainter = n === 4 && !T.G.s.flags.l4Done;
+    const firstSettle = n === 6 && !T.G.s.flags.l6Done;
+    const firstSplit = n === 2 && !T.G.s.flags.l2Done;
+    const firstLayer = n === 5 && !T.G.s.flags.l5Done;
+    if (n <= 3 && T.G.s.settings.skip[n] && !firstColor) {
+      // milestone-unlocked quick reset: no curtain, just a flash
+      const gain = T.G.applyReset(n);
+      FX.flash();
+      T.ui.rebuildPanel();
+      T.ui.toast(`${L.name}: ${L.cur} +${T.fmt(gain)}`);
+      T.audio.reset();
+      FX.busy = false;
+      return;
+    }
     const el = seq();
     el.innerHTML = '';
     el.className = 'seq on';
@@ -231,7 +272,7 @@
     } else if (firstSettle) {
       await sunrise(el, gain);
     } else {
-      const card = T.h(`<div class="seq-title"><div class="seq-kicker">${['', 'RECONSTRUCT', 'REFRACTION', 'TINCTURE', 'SETTLEMENT'][n]}</div><div class="seq-name">${L.name}</div><div class="seq-gain"><i class="ic ic-${L.icon}"></i> ${L.cur} +${T.fmt(gain)}</div></div>`);
+      const card = T.h(`<div class="seq-title"><div class="seq-kicker">${['', 'RECONSTRUCT', 'SPLIT', 'REFRACTION', 'TINCTURE', 'LAYERS', 'SETTLEMENT'][n]}</div><div class="seq-name">${L.name}</div><div class="seq-gain"><i class="ic ic-${L.icon}"></i> ${L.cur} +${T.fmt(gain)}</div></div>`);
       el.appendChild(card);
       await wait(60);
       card.classList.add('in');
@@ -246,40 +287,70 @@
     FX.busy = false;
     if (firstPainter) T.ui.introPainter();
     if (firstSettle) T.ui.introVillage();
+    if (firstSplit) T.ui.introSplit();
+    if (firstLayer) T.ui.introLayers();
     T.ui.afterReset(n);
   };
 
-  // first settlement: a night falls, then the first dawn over a village-to-be
-  async function sunrise(el, gain) {
-    const cv = document.createElement('canvas');
+  // pixel scene helper: draw on a tiny canvas, blit it up with crisp pixels
+  function pixelStage(el) {
     const W = innerWidth, H = innerHeight;
-    cv.width = W; cv.height = H; cv.className = 'seq-canvas';
+    const lw = 200, lh = Math.round((200 * H) / W);
+    const lo = document.createElement('canvas'); lo.width = lw; lo.height = lh;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; cv.className = 'seq-canvas';
     el.appendChild(cv);
-    const ctx = cv.getContext('2d');
+    const out = cv.getContext('2d');
+    const g = lo.getContext('2d');
+    return { g, lw, lh, cv, blit() { out.imageSmoothingEnabled = false; out.clearRect(0, 0, W, H); out.drawImage(lo, 0, 0, W, H); } };
+  }
+  function blitShape(g, id, seed, x, groundY, scale, res = 8) {
+    const sh = T.shapeOf(id, seed);
+    sh.blocks.forEach((b, i) => {
+      const cols = sh.colorAt(i, res), sub = 8 / res;
+      cols.forEach((c, k) => { if (!c) return; const ii = k % res, jj = Math.floor(k / res); g.fillStyle = c; g.fillRect(Math.round(x + (b.c * 8 + ii * sub) * scale), Math.round(groundY - ((b.r + 1) * 8 - jj * sub) * scale), Math.ceil(sub * scale), Math.ceil(sub * scale)); });
+    });
+    return sh;
+  }
+  // first settlement: night falls, then the first dawn breaks over the first hut
+  async function sunrise(el, gain) {
+    const st = pixelStage(el);
+    const { g, lw, lh } = st;
+    const stars = Array.from({ length: 50 }, () => [Math.random() * lw, Math.random() * lh * 0.6]);
     const scene = (k) => {
-      const g = ctx.createLinearGradient(0, 0, 0, H);
-      const top = k < 0.5 ? T.hsl(232, 40, 12 + k * 20) : T.hsl(220 - (k - 0.5) * 60, 50, 22 + (k - 0.5) * 120);
-      const bot = k < 0.5 ? T.hsl(240, 30, 18 + k * 10) : T.hsl(30, 80, 40 + (k - 0.5) * 70);
-      g.addColorStop(0, top); g.addColorStop(1, bot);
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      const sunY = H * 0.78 - Math.max(0, k - 0.45) * H * 0.5;
-      ctx.fillStyle = '#ffe3a3'; ctx.globalAlpha = T.clamp((k - 0.4) * 3, 0, 1);
-      ctx.beginPath(); ctx.arc(W / 2, sunY, 46, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-      ctx.fillStyle = k < 0.5 ? '#1d1f2e' : T.hsl(30, 25, 18 + (k - 0.5) * 30);
-      ctx.fillRect(0, H * 0.78, W, H);
-      // a little hut silhouette
-      const hx = W / 2 - 60, hy = H * 0.78;
-      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + 60, hy - 70); ctx.lineTo(hx + 120, hy); ctx.closePath(); ctx.fill();
-      if (k > 0.2) { ctx.fillStyle = `rgba(255,200,100,${T.clamp((k - 0.2) * 3, 0, 1) * (1 - T.clamp((k - 0.7) * 3, 0, 1))})`; ctx.fillRect(hx + 52, hy - 22, 16, 22); }
+      for (let y = 0; y < lh; y++) {
+        const f = y / lh;
+        const night = T.clamp(1 - k * 1.6, 0, 1);
+        const top = [20 + (1 - night) * 120, 24 + (1 - night) * 150, 56 + (1 - night) * 170];
+        const bot = [36 + (1 - night) * 219, 34 + (1 - night) * 150, 60 + (1 - night) * 60];
+        const band = Math.floor(f * 10) / 10; // stepped bands = pixel sky
+        g.fillStyle = `rgb(${top.map((v, i) => Math.round(v + (bot[i] - v) * band)).join(',')})`;
+        g.fillRect(0, y, lw, 1);
+      }
+      g.fillStyle = '#fffbe8';
+      for (const [x, y] of stars) if (Math.random() > k * 1.4) g.fillRect(Math.round(x), Math.round(y), 1, 1);
+      const sy = lh * 0.78 - Math.max(0, k - 0.35) * lh * 0.6;
+      if (k > 0.3) { g.fillStyle = '#ffd36b'; for (let dy = -9; dy <= 9; dy++) { const w = Math.round(Math.sqrt(81 - dy * dy)); g.fillRect(Math.round(lw / 2 + 30 - w), Math.round(sy + dy), w * 2, 1); } }
+      const gy = Math.round(lh * 0.78);
+      g.fillStyle = k < 0.45 ? '#20232f' : '#6f9b4f'; g.fillRect(0, gy, lw, lh - gy);
+      g.fillStyle = k < 0.45 ? '#2a2d3b' : '#8fc06a'; g.fillRect(0, gy, lw, 1);
+      blitShape(g, 'hut', 2, lw / 2 - 30, gy, 0.75, k < 0.5 ? 1 : k < 0.65 ? 2 : k < 0.8 ? 4 : 8);
+      if (k < 0.55) { g.fillStyle = `rgba(255,190,90,${0.5 + Math.sin(k * 40) * 0.2})`; g.fillRect(Math.round(lw / 2 - 30 + 18), gy - 8, 4, 6); }
+      st.blit();
     };
-    await anim(3600, (k) => scene(k));
+    await anim(4200, (k) => scene(k));
     const card = T.h(`<div class="seq-title light"><div class="seq-kicker">SETTLEMENT</div><div class="seq-name">정착</div><div class="seq-gain"><i class="ic ic-lantern"></i> 등불 +${T.fmt(gain)}</div><div class="seq-sub">첫 지붕 아래에서, 마을이 시작됩니다.</div></div>`);
     el.appendChild(card);
     await wait(60); card.classList.add('in');
     await wait(2200);
     card.classList.add('out');
-    await anim(1200, (k) => { cv.style.opacity = String(1 - k); el.style.background = `rgba(250,250,248,${1 - T.easeInOut(k)})`; });
+    await anim(1200, (k) => { st.cv.style.opacity = String(1 - k); el.style.background = `rgba(250,250,248,${1 - T.easeInOut(k)})`; });
   }
+  FX.flash = function () {
+    const el = T.h('<div class="flash"></div>');
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('go'));
+    setTimeout(() => el.remove(), 700);
+  };
 
   FX.milestone = async function () {
     if (FX.busy) return;
@@ -309,23 +380,30 @@
     FX.busy = true;
     const el = seq();
     el.innerHTML = ''; el.className = 'seq on era';
-    const cv = document.createElement('canvas');
-    const W = innerWidth, H = innerHeight;
-    cv.width = W; cv.height = H; cv.className = 'seq-canvas';
-    el.appendChild(cv);
-    const ctx = cv.getContext('2d');
+    const stg = pixelStage(el);
+    const { g, lw, lh } = stg;
     T.audio.era();
+    const nextEra = T.G.s.era + 1;
+    const house = { 2: 'stonehouse', 3: 'timberhouse', 4: 'townhouse' }[nextEra] || 'hut';
     const clock = (k, a) => {
-      ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = `rgba(40,32,24,${a})`; ctx.fillRect(0, 0, W, H);
-      const cx = W / 2, cy = H / 2 - 30, R = 70;
-      ctx.globalAlpha = a; ctx.strokeStyle = '#f2e6cf'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
-      for (let i = 0; i < 12; i++) { const an = (i / 12) * Math.PI * 2; ctx.fillStyle = '#f2e6cf'; ctx.fillRect(cx + Math.cos(an) * (R - 10) - 2, cy + Math.sin(an) * (R - 10) - 2, 4, 4); }
+      g.clearRect(0, 0, lw, lh);
+      g.fillStyle = `rgba(40,32,24,${a})`; g.fillRect(0, 0, lw, lh);
+      g.globalAlpha = a;
+      const cx = Math.round(lw / 2), cy = Math.round(lh * 0.38), R = 18;
+      g.fillStyle = '#f2e6cf';
+      for (let i = 0; i < 360; i += 2) { const an = (i / 180) * Math.PI; g.fillRect(Math.round(cx + Math.cos(an) * R), Math.round(cy + Math.sin(an) * R), 1, 1); }
+      for (let i = 0; i < 12; i++) { const an = (i / 12) * Math.PI * 2; g.fillRect(Math.round(cx + Math.cos(an) * (R - 3)), Math.round(cy + Math.sin(an) * (R - 3)), 1, 1); }
       const spin = k * k * 60;
-      ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(spin) * (R - 18), cy + Math.sin(spin) * (R - 18)); ctx.stroke();
-      ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(spin / 12) * (R - 34), cy + Math.sin(spin / 12) * (R - 34)); ctx.stroke();
-      ctx.globalAlpha = 1;
+      const hand = (len, an) => { for (let r = 0; r <= len; r++) g.fillRect(Math.round(cx + Math.cos(an) * r), Math.round(cy + Math.sin(an) * r), 1, 1); };
+      hand(R - 5, spin - Math.PI / 2); g.fillStyle = '#ffd166'; hand(R - 9, spin / 12 - Math.PI / 2);
+      const gy = Math.round(lh * 0.86);
+      g.fillStyle = '#4a3c2e'; g.fillRect(0, gy, lw, lh - gy);
+      // the next era's house rises out of the ground as time spins
+      g.save(); g.beginPath(); g.rect(0, 0, lw, gy); g.clip();
+      blitShape(g, house, 4, cx - 18, gy + Math.round((1 - T.easeOut(k)) * 50), 0.6, k < 0.4 ? 1 : k < 0.6 ? 2 : k < 0.8 ? 4 : 8);
+      g.restore();
+      g.globalAlpha = 1;
+      stg.blit();
     };
     await anim(1200, (k) => clock(k * 0.3, k));
     await anim(2200, (k) => clock(0.3 + k * 0.7, 1));
@@ -355,7 +433,9 @@
         <div class="cr-sec"><small>함께 만든</small><b>Claude</b></div>
         <div class="cr-sec"><small>건축가</small><b>네모, 세모, 동그라미, 오각, 별, 육각</b></div>
         <div class="cr-sec"><small>채색</small><b>방울</b></div>
+        <div class="cr-sec"><small>쪼개기</small><b>끌</b></div>
         <div class="cr-sec"><small>철거</small><b>망치</b></div>
+        <div class="cr-sec"><small>레이어 이동</small><b>워프</b></div>
         <div class="cr-sec"><small>마을 사람들</small><b>지금까지 태어나고 떠난 모든 주민</b></div>
         <div class="cr-sec"><small>글꼴</small><b>Galmuri by Quiple (SIL OFL 1.1)</b></div>
         <div class="cr-sec"><small>도면 선</small><b>Rough.js by Preet Shihn (MIT)</b></div>
@@ -366,7 +446,7 @@
       <div class="cr-hint">클릭하면 닫힙니다</div>
     </div>`);
     const parade = el.querySelector('.cr-parade');
-    ['square', 'triangle', 'circle', 'pentagon', 'star', 'hexagon', 'drop', 'demo'].forEach((k, i) => {
+    ['square', 'triangle', 'circle', 'pentagon', 'star', 'hexagon', 'chisel', 'drop', 'demo', 'portal'].forEach((k, i) => {
       const c = T.sprites.portrait(k, s.flags.color || true, 3, i % 2 ? 'happy' : 'normal');
       c.style.animationDelay = `${-i * 1.2}s`;
       parade.appendChild(c);
