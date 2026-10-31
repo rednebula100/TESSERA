@@ -78,7 +78,14 @@
   T.FACE = FACE;
 
   const cache = new Map();
+  const MASK_OF = { demo: 'square', chisel: 'hexagon', portal: 'circle' };
   function palette(kind, color) {
+    if (kind === 'chisel') return color
+      ? { body: '#d7dde6', shade: '#aeb8c6', line: '#34404f', hi: '#ffffff', cheek: '#f29fae', ink: '#1f2733', sprout: '#34404f' }
+      : { body: '#e9e9e7', shade: '#c9c9c6', line: '#333332', hi: '#ffffff', cheek: '#c4c4c1', ink: '#252525', sprout: '#666' };
+    if (kind === 'portal') return color
+      ? { body: '#d9ccf5', shade: '#b39ddb', line: '#4b3a73', hi: '#ffffff', cheek: '#f29fae', ink: '#2a2140', sprout: '#8e7cc3' }
+      : { body: '#ececea', shade: '#cdcdca', line: '#333332', hi: '#ffffff', cheek: '#c4c4c1', ink: '#252525', sprout: '#777' };
     if (kind === 'demo') return color
       ? { body: '#f3c7a8', shade: '#dc9d78', line: '#5a2e1c', hi: '#ffffff', cheek: '#f29fae', ink: '#2a1a14', sprout: '#5a2e1c' }
       : { body: '#ededeb', shade: '#cfcfcc', line: '#333332', hi: '#ffffff', cheek: '#c4c4c1', ink: '#252525', sprout: '#666' };
@@ -101,7 +108,7 @@
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
-    const m = MASKS[kind] || MASKS.square;
+    const m = MASKS[kind] || MASKS[MASK_OF[kind]] || MASKS.square;
     const px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(x + PAD, y + PAD + TOP, 1, 1); };
     // outline
     for (let y = -1; y <= SH; y++)
@@ -128,7 +135,7 @@
       if (done) break;
     }
     // sprout / antenna (not for star)
-    if (kind !== 'star' && kind !== 'demo') {
+    if (kind !== 'star' && kind !== 'demo' && kind !== 'chisel') {
       let topY = 0; while (!m(7, topY) && topY < 6) topY++;
       const sx = kind === 'drop' ? 7 : 7;
       ctx.fillStyle = pal.line;
@@ -175,7 +182,7 @@
     ctx.drawImage(spr.cv, x0, y0, W, H);
     if (ps < 0.8) return;
     // face
-    const f = FACE[kind] || FACE.square;
+    const f = FACE[kind] || FACE[MASK_OF[kind]] || FACE.square;
     const fx = (x) => x0 + (x + PAD) * pw;
     const fy = (y) => y0 + (y + PAD + TOP) * ph;
     const lx = o.look ? o.look[0] : 0, ly = o.look ? o.look[1] : 0;

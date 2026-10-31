@@ -82,3 +82,28 @@ T.gray = function (hex) {
   const y = 0.299 * r + 0.587 * g + 0.114 * b;
   return T.rgbToHex(y, y, y);
 };
+
+// Soft cap: above `cap`, growth is compressed to (v/cap)^p (Profectus-style formula softcap)
+T.softcap = (v, cap, p = 0.5) => (v <= cap || cap <= 0 ? v : cap * Math.pow(v / cap, p));
+// hue-shifted ramp: cool, darker shadows and warm, lighter highlights
+T.ramp = function (hex) {
+  const [r, g, b] = T.hexToRgb(hex);
+  const mx = Math.max(r, g, b) / 255, mn = Math.min(r, g, b) / 255;
+  let h = 0, s = 0; const l = (mx + mn) / 2;
+  if (mx !== mn) {
+    const d = mx - mn;
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    const R = r / 255, G = g / 255, Bl = b / 255;
+    h = mx === R ? (G - Bl) / d + (G < Bl ? 6 : 0) : mx === G ? (Bl - R) / d + 2 : (R - G) / d + 4;
+    h *= 60;
+  }
+  const S = s * 100, L = l * 100;
+  const toward = (hh, target, k) => { let d = ((target - hh + 540) % 360) - 180; return hh + d * k; };
+  return [
+    T.hsl(toward(h, 250, 0.1), S * (L > 70 ? 0.45 : 0.85), Math.max(4, L - 32)),
+    T.hsl(toward(h, 250, 0.05), S * (L > 70 ? 0.6 : 0.92), Math.max(6, L - 15)),
+    hex,
+    T.hsl(toward(h, 55, 0.12), S * 0.92, Math.min(96, L + 11)),
+    T.hsl(toward(h, 55, 0.22), S * 0.8, Math.min(98, L + 21)),
+  ];
+};
