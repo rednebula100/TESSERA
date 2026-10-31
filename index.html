@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <title>TESSERA · 테세라 — 작은 건축가들</title>
-  <meta name="description" content="네모난 세계, 작은 건축가들이 쌓아 올리는 기하학의 성소. 브라우저에서 바로 즐기는 미니멀 픽셀 인크리멘탈 게임.">
+  <title>TESSERA</title>
+  <meta name="description" content="작은 네모 건축가들이 조형물을 쌓고, 마을을 이루고, 시대를 건너는 미니멀 픽셀 인크리멘탈 게임.">
   <meta name="theme-color" content="#f6f6f4">
   <link rel="icon" type="image/png" href="docs/favicon.png">
   <link rel="apple-touch-icon" href="docs/favicon.png">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="TESSERA · 테세라 — 작은 건축가들">
-  <meta property="og:description" content="작은 네모 건축가들이 블럭을 하나씩 던져 올려, 수십만 개가 쌓이면 거대한 장미창이 떠오르는 미니멀 픽셀 인크리멘탈 게임.">
+  <meta property="og:title" content="TESSERA">
+  <meta property="og:description" content="작은 네모 건축가들이 조형물을 쌓고, 마을을 이루고, 시대를 건너는 미니멀 픽셀 인크리멘탈 게임.">
   <meta property="og:image" content="https://rednebula100.github.io/TESSERA/docs/og.png">
   <meta property="og:url" content="https://rednebula100.github.io/TESSERA/">
   <meta name="twitter:card" content="summary_large_image">
@@ -20,7 +20,7 @@
   <canvas id="cv"></canvas>
 
   <header id="hud">
-    <div class="brand">TESSERA<small>테세라</small></div>
+    <div class="brand">TESSERA</div>
     <div id="cur" class="box"></div>
   </header>
 
@@ -40,17 +40,18 @@
     <button class="dk" id="btn-snd" title="소리">♪</button>
     <button class="dk" id="btn-set" title="설정">⚙</button>
     <button class="dk" id="btn-panel" title="패널 접기">▤</button>
+    <button class="dk gap" id="gap" title="블럭 간격: 위에서 휠을 굴리거나 클릭 ([ ] 키)"><small>간격</small><span id="gap-v">격자</span></button>
   </div>
 
   <div id="tip"></div>
   <div id="hint"></div>
   <div id="card" class="box"></div>
   <div id="modal"></div>
-  <div id="obs-hint">관측 중 — 아무 곳이나 클릭하면 돌아갑니다</div>
+  <div id="obs-hint">관측 중. 아무 곳이나 클릭하면 돌아갑니다</div>
 
   <div id="titlecard">
     <div class="tc-logo">TESSERA</div>
-    <div class="tc-sub">테세라 · 작은 건축가들</div>
+    <div class="tc-sub">작은 건축가들</div>
   </div>
 
   <div id="seq" class="seq"></div>
@@ -61,12 +62,15 @@
   <script src="js/util.js"></script>
   <script src="js/data.js"></script>
   <script src="js/patterns.js"></script>
+  <script src="js/gridgen.js"></script>
+  <script src="js/catalog.js"></script>
   <script src="js/world.js"></script>
   <script src="js/sprites.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/structures.js"></script>
+  <script src="js/village.js"></script>
   <script src="js/entities.js"></script>
-  <script src="js/blueprints.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/main.js"></script>

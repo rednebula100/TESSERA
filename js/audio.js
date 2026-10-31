@@ -65,6 +65,10 @@
     reset() {
       [9, 7, 4, 2, 0].forEach((s, i) => A.tone(A.pitch(s, 523.25), 0.9, 'sine', 0.035, i * 0.12));
     },
+    milestone() { [0, 4, 7, 12].forEach((s, i) => A.tone(A.pitch(s, 196), 0.9, 'triangle', 0.04, i * 0.11)); A.tone(98, 1.2, 'sine', 0.05); },
+    era() { [0, 2, 4, 7, 9, 12, 14].forEach((s, i) => A.tone(A.pitch(s, 220), 1.4, 'sine', 0.03, i * 0.32)); A.tone(110, 3, 'triangle', 0.03); },
+    farewell() { [7, 4, 2, 0].forEach((s, i) => A.tone(A.pitch(s, 330), 1.1, 'sine', 0.025, i * 0.28)); },
+    tick() { A.tone(1400, 0.03, 'square', 0.012); },
     unlock() { [0, 4, 7].forEach((s, i) => A.tone(A.pitch(s + 5, 392), 0.5, 'triangle', 0.035, i * 0.07)); },
   };
   T.audio = A;

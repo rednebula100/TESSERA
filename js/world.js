@@ -1,6 +1,6 @@
 'use strict';
 // ─────────────────────────────────────────────────────────────
-//  WORLD — 카메라, 청크 캐시 렌더링, 블럭 굽기
+//  WORLD: 카메라, 청크 캐시(앞/뒤/땅속 레이어), 하늘, 바닥, 밤
 // ─────────────────────────────────────────────────────────────
 (function () {
   const B = T.B;
@@ -10,18 +10,19 @@
   T.w2s = (wx, wy) => [(wx - cam.x) * cam.z + cam.W / 2, cam.H / 2 - (wy - cam.y) * cam.z];
   T.s2w = (sx, sy) => [(sx - cam.W / 2) / cam.z + cam.x, (cam.H / 2 - sy) / cam.z + cam.y];
 
-  const chunks = new Map();
+  const layers = { back: new Map(), front: new Map(), under: new Map() };
   let count = 0;
+  let maxR = 0;
 
-  function getChunk(cx, cy) {
+  function getChunk(layer, cx, cy) {
+    const map = layers[layer];
     const key = cx + ',' + cy;
-    let c = chunks.get(key);
+    let c = map.get(key);
     if (!c) {
       const cv = document.createElement('canvas');
       cv.width = CH; cv.height = CH;
-      const ctx = cv.getContext('2d');
-      c = { cx, cy, cv, ctx, n: 0, lod: null, lodDirty: true };
-      chunks.set(key, c);
+      c = { cx, cy, cv, ctx: cv.getContext('2d'), lod: null, lodDirty: true };
+      map.set(key, c);
     }
     return c;
   }
@@ -30,80 +31,90 @@
   function shades(color) {
     let s = shadeCache.get(color);
     if (!s) {
-      s = { base: color, hi: T.shade(color, 0.32), lo: T.shade(color, -0.22), edge: T.shade(color, -0.38) };
+      s = { base: color, hi: T.shade(color, 0.3), lo: T.shade(color, -0.2), edge: T.shade(color, -0.36) };
       shadeCache.set(color, s);
+      if (shadeCache.size > 5000) shadeCache.clear();
     }
     return s;
   }
 
-  // draw a block into chunk rasters. x,y = block center (world units, y up)
-  let maxR = 0;
-  function drawBlock(x, y, color, glow) {
-    const dr = Math.hypot(x, y - T.YC);
-    if (dr > maxR) maxR = dr;
+  // x,y = block centre (world units, y up)
+  function drawBlock(x, y, color, glow, layer = 'front') {
     const x0 = Math.round(x - B / 2), y1 = Math.round(y + B / 2);
     const cx0 = Math.floor(x0 / CH), cx1 = Math.floor((x0 + B - 1) / CH);
     const cy0 = Math.floor((y1 - B) / CH), cy1 = Math.floor((y1 - 1) / CH);
     const s = shades(color);
     for (let cx = cx0; cx <= cx1; cx++) {
       for (let cy = cy0; cy <= cy1; cy++) {
-        const c = getChunk(cx, cy);
+        const c = getChunk(layer, cx, cy);
         const ctx = c.ctx;
-        const px = x0 - cx * CH;
-        const py = (cy + 1) * CH - y1;
+        const px = x0 - cx * CH, py = (cy + 1) * CH - y1;
         ctx.fillStyle = s.edge; ctx.fillRect(px, py, B, B);
         ctx.fillStyle = s.base; ctx.fillRect(px, py, B - 1, B - 1);
         ctx.fillStyle = s.hi; ctx.fillRect(px, py, B - 1, 1); ctx.fillRect(px, py, 1, B - 1);
         ctx.fillStyle = s.lo; ctx.fillRect(px + 1, py + B - 2, B - 2, 1); ctx.fillRect(px + B - 2, py + 1, 1, B - 2);
-        if (glow) {
-          ctx.fillStyle = '#ffffff'; ctx.fillRect(px + 2, py + 2, 2, 2);
-          ctx.fillStyle = T.shade(color, 0.6); ctx.fillRect(px + 4, py + 4, 1, 1);
-        }
-        c.n++;
+        if (glow) { ctx.fillStyle = '#ffffff'; ctx.fillRect(px + 2, py + 2, 2, 2); }
         c.lodDirty = true;
       }
     }
+    if (layer !== 'under') { const dr = Math.abs(x) + y * 0.6; if (dr > maxR) maxR = dr; }
     count++;
   }
+  // flat cell without bevel (used for water so it reads as a surface)
+  function drawFlat(x, y, color, layer) {
+    const x0 = Math.round(x - B / 2), y1 = Math.round(y + B / 2);
+    const cx = Math.floor(x0 / CH), cy = Math.floor((y1 - 1) / CH);
+    for (const [ccx, ccy] of [[cx, cy], [Math.floor((x0 + B - 1) / CH), cy], [cx, Math.floor((y1 - B) / CH)]]) {
+      const c = getChunk(layer, ccx, ccy);
+      c.ctx.fillStyle = color;
+      c.ctx.fillRect(x0 - ccx * CH, (ccy + 1) * CH - y1, B, B);
+      c.ctx.fillStyle = T.shade(color, 0.18);
+      c.ctx.fillRect(x0 - ccx * CH, (ccy + 1) * CH - y1, B, 1);
+      c.lodDirty = true;
+    }
+  }
 
-  // structure outline: a crisp 1px dark line around the silhouette of completed blueprint cells
   function drawOutline(cells, ox, oy, color) {
     const set = new Set(cells.map((c) => c.c + ',' + c.r));
-    const pix = [];
     for (const c of cells) {
-      const x = ox + c.c * B, y = oy + c.r * B; // bottom-left of cell
-      if (!set.has(c.c + ',' + (c.r + 1))) pix.push([x, y + B - 1, B, 1]);
-      if (!set.has(c.c + ',' + (c.r - 1))) pix.push([x, y, B, 1]);
-      if (!set.has(c.c - 1 + ',' + c.r)) pix.push([x, y, 1, B]);
-      if (!set.has(c.c + 1 + ',' + c.r)) pix.push([x + B - 1, y, 1, B]);
-    }
-    for (const [x, y, w, h] of pix) {
-      const X = Math.round(x), Y = Math.round(y);
-      const cx = Math.floor(X / CH), cy = Math.floor(Y / CH);
-      const c = getChunk(cx, cy);
-      c.ctx.fillStyle = color;
-      c.ctx.fillRect(X - cx * CH, (cy + 1) * CH - (Y + h), w, h);
+      if (c.r < 0) continue;
+      const x = ox + c.c * B, y = oy + c.r * B;
+      const segs = [];
+      if (!set.has(c.c + ',' + (c.r + 1))) segs.push([x, y + B - 1, B, 1]);
+      if (!set.has(c.c - 1 + ',' + c.r)) segs.push([x, y, 1, B]);
+      if (!set.has(c.c + 1 + ',' + c.r)) segs.push([x + B - 1, y, 1, B]);
+      for (const [sx, sy, w, h] of segs) {
+        const X = Math.round(sx), Y = Math.round(sy);
+        const cx = Math.floor(X / CH), cy = Math.floor(Y / CH);
+        const ch = getChunk('front', cx, cy);
+        ch.ctx.fillStyle = color;
+        ch.ctx.fillRect(X - cx * CH, (cy + 1) * CH - (Y + h), w, h);
+        ch.lodDirty = true;
+      }
     }
   }
 
-  function clear() {
-    chunks.clear();
-    count = 0;
-    maxR = 0;
+  function clear() { for (const m of Object.values(layers)) m.clear(); count = 0; maxR = 0; }
+  // wipe every chunk column touching [x0,x1]; caller redraws what lives there
+  function clearRange(x0, x1) {
+    const a = Math.floor(x0 / CH), b = Math.floor(x1 / CH);
+    for (const m of Object.values(layers)) for (const [k, c] of m) if (c.cx >= a && c.cx <= b) m.delete(k);
+    return [a * CH, (b + 1) * CH];
   }
 
-  function render(ctx) {
+  function render(ctx, layer = 'front', alpha = 1) {
     const z = cam.z;
     const [wx0, wy1] = T.s2w(0, 0);
     const [wx1, wy0] = T.s2w(cam.W, cam.H);
     const cx0 = Math.floor(wx0 / CH), cx1 = Math.floor(wx1 / CH);
-    const cy0 = Math.max(0, Math.floor(wy0 / CH)), cy1 = Math.floor(wy1 / CH);
+    const cy0 = Math.floor(wy0 / CH), cy1 = Math.floor(wy1 / CH);
     ctx.imageSmoothingEnabled = z < 0.999;
     ctx.imageSmoothingQuality = 'high';
+    if (alpha < 1) ctx.globalAlpha = alpha;
     const size = CH * z;
     const lodRes = z < 0.18 ? 64 : z < 0.45 ? 128 : 0;
     let budget = 12;
-    for (const c of chunks.values()) {
+    for (const c of layers[layer].values()) {
       if (c.cx < cx0 || c.cx > cx1 || c.cy < cy0 || c.cy > cy1) continue;
       let img = c.cv;
       if (lodRes) {
@@ -119,28 +130,32 @@
       }
       const sx = (c.cx * CH - cam.x) * z + cam.W / 2;
       const sy = cam.H / 2 - ((c.cy + 1) * CH - cam.y) * z;
-      // snap to pixels when magnified to avoid seams
       if (z >= 1) ctx.drawImage(img, Math.round(sx), Math.round(sy), Math.round(sx + size) - Math.round(sx), Math.round(sy + size) - Math.round(sy));
       else ctx.drawImage(img, sx, sy, size + 0.6, size + 0.6);
     }
+    ctx.globalAlpha = 1;
     ctx.imageSmoothingEnabled = false;
   }
 
+  // ── sky ──────────────────────────────────────────────────
   let skyCache = null, skyKey = '';
-  let haloCache = {};
+  const halos = {};
   function halo(color) {
     const key = color ? 'c' : 'g';
-    if (haloCache[key]) return haloCache[key];
+    if (halos[key]) return halos[key];
     const cv = document.createElement('canvas');
     cv.width = cv.height = 256;
     const g2 = cv.getContext('2d');
     const g = g2.createRadialGradient(128, 128, 0, 128, 128, 128);
-    if (color) { g.addColorStop(0, 'rgba(255,248,232,0.95)'); g.addColorStop(0.5, 'rgba(255,244,226,0.45)'); g.addColorStop(1, 'rgba(255,244,226,0)'); }
-    else { g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)'); }
+    g.addColorStop(0, color ? 'rgba(255,248,232,0.9)' : 'rgba(255,255,255,0.9)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
     g2.fillStyle = g; g2.fillRect(0, 0, 256, 256);
-    return (haloCache[key] = cv);
+    return (halos[key] = cv);
   }
-  function drawSky(ctx, color) {
+  const stars = [];
+  for (let i = 0; i < 140; i++) stars.push([Math.random(), Math.random() * 0.75, Math.random() * 1.6 + 0.4, Math.random() * 6]);
+
+  function drawSky(ctx, color, night = 0, t = 0) {
     const W = cam.W, H = cam.H;
     const key = W + 'x' + H + (color ? 'c' : 'g');
     if (key !== skyKey) {
@@ -150,7 +165,7 @@
       const c = skyCache.getContext('2d');
       if (color) {
         const g = c.createLinearGradient(0, 0, 0, H);
-        g.addColorStop(0, '#e9f0f5'); g.addColorStop(0.75, '#f7f3ec'); g.addColorStop(1, '#fbf1e4');
+        g.addColorStop(0, '#e6eef5'); g.addColorStop(0.75, '#f7f3ec'); g.addColorStop(1, '#fbf1e4');
         c.fillStyle = g;
       } else c.fillStyle = '#f6f6f4';
       c.fillRect(0, 0, W, H);
@@ -160,66 +175,100 @@
       c.fillStyle = vg; c.fillRect(0, 0, W, H);
     }
     ctx.drawImage(skyCache, 0, 0);
-    ctx.imageSmoothingEnabled = true;
-    // a soft light behind the monument — grows with it
-    if (maxR > 60) {
-      const [cx, cy] = T.w2s(0, T.YC);
-      const r = Math.max(80, maxR * 1.35 * cam.z);
-      ctx.globalAlpha = T.clamp(maxR / 1500, 0.15, 1);
+    if (night > 0.01) {
+      ctx.fillStyle = color ? `rgba(22,26,58,${0.82 * night})` : `rgba(28,28,30,${0.78 * night})`;
+      ctx.fillRect(0, 0, W, H);
+      for (const [sx, sy, sz, ph] of stars) {
+        ctx.globalAlpha = night * (0.45 + 0.55 * Math.abs(Math.sin(t * 0.8 + ph)));
+        ctx.fillStyle = '#fffbe8';
+        ctx.fillRect(Math.round(sx * W), Math.round(sy * H), sz, sz);
+      }
+      ctx.globalAlpha = 1;
+    } else if (maxR > 60) {
+      const [cx, cy] = T.w2s(0, 60);
+      const r = Math.max(80, maxR * 1.1 * cam.z);
+      ctx.globalAlpha = T.clamp(maxR / 2500, 0.1, 0.6);
+      ctx.imageSmoothingEnabled = true;
       ctx.drawImage(halo(color), cx - r, cy - r, r * 2, r * 2);
+      ctx.imageSmoothingEnabled = false;
       ctx.globalAlpha = 1;
     }
-    ctx.imageSmoothingEnabled = false;
-    // faint world grid: every 8 blocks
-    const step = B * 8;
-    const sp = step * cam.z;
-    if (sp >= 14) {
-      const alpha = T.clamp((sp - 14) / 40, 0, 1) * 0.55;
-      ctx.strokeStyle = color ? `rgba(120,140,160,${alpha * 0.22})` : `rgba(0,0,0,${alpha * 0.06})`;
+    // faint world grid
+    const step = B * 8, sp = step * cam.z;
+    if (sp >= 14 && night < 0.5) {
+      const alpha = T.clamp((sp - 14) / 40, 0, 1) * 0.55 * (1 - night * 2);
+      ctx.strokeStyle = color ? `rgba(120,140,160,${alpha * 0.2})` : `rgba(0,0,0,${alpha * 0.055})`;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      const [wx0, wy1] = T.s2w(0, 0);
-      const [wx1, wy0] = T.s2w(W, H);
-      for (let x = Math.floor(wx0 / step) * step; x <= wx1; x += step) {
-        const sx = Math.round((x - cam.x) * cam.z + W / 2) + 0.5;
-        ctx.moveTo(sx, 0); ctx.lineTo(sx, H);
-      }
-      for (let y = Math.max(0, Math.floor(wy0 / step) * step); y <= wy1; y += step) {
-        const sy = Math.round(H / 2 - (y - cam.y) * cam.z) + 0.5;
-        ctx.moveTo(0, sy); ctx.lineTo(W, sy);
-      }
+      const [wx0, wy1] = T.s2w(0, 0), [wx1, wy0] = T.s2w(W, H);
+      for (let x = Math.floor(wx0 / step) * step; x <= wx1; x += step) { const sx = Math.round((x - cam.x) * cam.z + W / 2) + 0.5; ctx.moveTo(sx, 0); ctx.lineTo(sx, H); }
+      for (let y = Math.max(0, Math.floor(wy0 / step) * step); y <= wy1; y += step) { const sy = Math.round(H / 2 - (y - cam.y) * cam.z) + 0.5; ctx.moveTo(0, sy); ctx.lineTo(W, sy); }
       ctx.stroke();
     }
   }
 
-  function drawFloor(ctx, color) {
+  // ── floor ────────────────────────────────────────────────
+  // era-specific ground; painters stain it deeper the more they walk
+  const FLOORS = {
+    stone: { c: ['#b9b2a6', '#a39b8e', '#8b8376', '#776f63'], g: ['#a9a9a6', '#979794', '#858582', '#737371'] },
+    grass: { c: ['#8fc06a', '#a39b8e', '#8b8376', '#776f63'], g: ['#b0b0ad', '#979794', '#858582', '#737371'] },
+    path: { c: ['#86b862', '#a8987f', '#8b7c66', '#74675a'], g: ['#adadaa', '#999996', '#868683', '#727270'] },
+    cobble: { c: ['#7fb25d', '#9f9a92', '#878177', '#6f6a62'], g: ['#ababa8', '#979794', '#848481', '#70706e'] },
+    town: { c: ['#79ab58', '#a4a29c', '#8a877f', '#706d66'], g: ['#aaaaa7', '#989895', '#858582', '#71716f'] },
+  };
+  const paint = new Map(); // bucket(4u) -> {col, n}
+  function stain(x, col, amt = 1) {
+    const k = Math.floor(x / 4);
+    for (let d = -1; d <= 1; d++) {
+      const e = paint.get(k + d) || { col, n: 0 };
+      if (d === 0) e.col = col;
+      e.n = Math.min(60, e.n + amt * (d === 0 ? 1 : 0.4));
+      paint.set(k + d, e);
+    }
+  }
+  function drawFloor(ctx, color, era = 0, night = 0) {
     const W = cam.W, H = cam.H;
     const [, gy] = T.w2s(0, 0);
     if (gy > H) return;
     const top = Math.round(gy);
     const z = cam.z;
-    const c1 = color ? '#b9b2a6' : '#a9a9a6';
-    const c2 = color ? '#a39b8e' : '#979794';
-    const c3 = color ? '#8b8376' : '#858582';
-    const c4 = color ? '#776f63' : '#737371';
-    ctx.fillStyle = c2; ctx.fillRect(0, top, W, H - top);
-    ctx.fillStyle = c1; ctx.fillRect(0, top, W, Math.max(1, Math.round(2 * z)));
-    // pixel dither texture
+    const f = FLOORS[(T.ERAS[era] || T.ERAS[0]).floor];
+    const p = color ? f.c : f.g;
+    ctx.fillStyle = p[1]; ctx.fillRect(0, top, W, H - top);
+    const [wx0] = T.s2w(0, 0), [wx1] = T.s2w(W, 0);
+    // painted ground: colour soaks downward with use
+    if (paint.size && color) {
+      for (const [k, e] of paint) {
+        const x = k * 4;
+        if (x < wx0 - 8 || x > wx1 + 8) continue;
+        const sx = Math.floor((x - cam.x) * z + W / 2);
+        const depth = (2 + e.n * 0.55) * z;
+        ctx.globalAlpha = T.clamp(0.25 + e.n / 60, 0.25, 0.85);
+        ctx.fillStyle = e.col;
+        ctx.fillRect(sx, top, Math.ceil(4 * z) + 1, depth);
+        ctx.globalAlpha = 1;
+      }
+    }
+    // top band: grass / stone
+    ctx.fillStyle = p[0]; ctx.fillRect(0, top, W, Math.max(1, Math.round((era >= 1 ? 3 : 2) * z)));
     if (z >= 0.45) {
-      const [wx0] = T.s2w(0, 0);
-      const [wx1] = T.s2w(W, 0);
-      const p = Math.max(1, Math.round(z * 2));
+      const ps = Math.max(1, Math.round(z * 2));
       for (let x = Math.floor(wx0 / 4) * 4; x < wx1; x += 4) {
         const hsh = Math.abs(Math.sin(x * 12.9898) * 43758.5453) % 1;
         const sx = Math.round((x - cam.x) * z + W / 2);
-        if (hsh < 0.3) { ctx.fillStyle = c3; ctx.fillRect(sx, top + Math.round((2 + hsh * 20) * z), p, p); }
-        else if (hsh > 0.86) { ctx.fillStyle = c1; ctx.fillRect(sx, top + Math.round((5 + hsh * 14) * z), p, p); }
+        if (era >= 1 && color && hsh < 0.22) { ctx.fillStyle = p[0]; ctx.fillRect(sx, top - ps, ps, ps); }
+        if (hsh < 0.3) { ctx.fillStyle = p[2]; ctx.fillRect(sx, top + Math.round((3 + hsh * 20) * z), ps, ps); }
+        else if (hsh > 0.86) { ctx.fillStyle = p[0]; ctx.fillRect(sx, top + Math.round((6 + hsh * 14) * z), ps, ps); }
       }
     }
     const band = Math.round(40 * z);
-    ctx.fillStyle = c3; ctx.fillRect(0, top + band, W, H);
-    ctx.fillStyle = c4; ctx.fillRect(0, top + band * 2.2, W, H);
+    ctx.fillStyle = p[2]; ctx.fillRect(0, top + band, W, H);
+    ctx.fillStyle = p[3]; ctx.fillRect(0, top + band * 2.2, W, H);
+    if (night > 0.01) { ctx.fillStyle = `rgba(14,16,40,${0.55 * night})`; ctx.fillRect(0, top, W, H - top); }
   }
 
-  T.world = { chunks, clear, drawBlock, drawOutline, render, drawSky, drawFloor, get count() { return count; }, get maxR() { return maxR; }, CH };
+  T.world = {
+    layers, clear, clearRange, drawBlock, drawFlat, drawOutline, render, drawSky, drawFloor, stain, paint,
+    get count() { return count; }, get maxR() { return maxR; }, CH,
+  };
 })();
