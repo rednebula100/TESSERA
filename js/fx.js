@@ -299,7 +299,7 @@
     if (k > 1) uiAdd({ x: r.left + r.width / 2, y: r.top - 4, vx: 0, vy: -34, g: 0, life: 0.9, max: 0.9, s: 1, c: colorOn() ? '#c48a00' : '#2b2b2b', kind: 'text', text: `×${k}` });
   };
   // a panel row lights up once
-  FX.rowFlash = function (el) { if (!el) return; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); };
+  FX.rowFlash = function (el) { if (!el) return; el.classList.remove('rowflash'); void el.offsetWidth; el.classList.add('rowflash'); setTimeout(() => el.classList.remove('rowflash'), 500); };
   // a roster tile: white pixel frame flash, a +n badge and three stars
   FX.tileLevel = function (el, n, delay = 0) {
     if (!el) return;
@@ -465,7 +465,7 @@
     await anim(1200, (k) => { st.cv.style.opacity = String(1 - k); el.style.background = `rgba(250,250,248,${1 - T.easeInOut(k)})`; });
   }
   FX.flash = function () {
-    const el = T.h('<div class="flash"></div>');
+    const el = T.h('<div class="screenflash"></div>');
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('go'));
     setTimeout(() => el.remove(), 700);

@@ -203,7 +203,7 @@ T.GUIDES = [
     { at: '.bpgrid', tab: 'bp', text: '설계도를 펼치면 건축가들이 힘을 모아 짓습니다. 단계가 오를수록 <b>확실히 커지고</b> 보상도 커집니다.' },
     { at: '#cv', text: '짓는 중에는 <b>빈칸을 클릭</b>해 직접 채울 수 있습니다. 완공하면 도감에 남아 영원한 <b>명성</b>이 됩니다.' } ] },
   { id: 'l1', title: '재구성과 공방', icon: 'up', when: (s) => s.flags.l1Done >= 1, pages: [
-    { at: '.tab[data-tip="공방"]', tab: 'v', text: '재구성으로 얻은 <b>꼭짓점</b>은 공방에서 씁니다. 공방 업그레이드는 다음 재구성에도 남아요.' },
+    { at: '.tab[data-name="공방"]', tab: 'v', text: '재구성으로 얻은 <b>꼭짓점</b>은 공방에서 씁니다. 공방 업그레이드는 다음 재구성에도 남아요.' },
     { at: '#cur', text: '쓰지 않고 모아 둔 꼭짓점도 조각을 조금 늘려 줍니다. 쓸지, 모을지 골라 보세요.' } ] },
   { id: 'l2', title: '다듬기와 해상도', icon: 'chisel', when: (s) => s.flags.l2Done >= 1, pages: [
     { at: '.res-card', tab: 's', text: '석공소의 <b>해상도</b>를 올리면 <b>톡톡</b> 주민이 블록을 더 곱게 다듬습니다. 해상도는 어떤 리셋에도 남아요.' },
@@ -214,23 +214,23 @@ T.GUIDES = [
   { id: 'buyn', title: '구매 수량', icon: 'two', when: (s) => s.ms >= 8, pages: [
     { at: '#buyn', text: '「구매」 버튼으로 한 번에 살 개수를 고릅니다. ×1, ×5, ×10, ×25, 최대. 버튼은 살 수 있을 만큼 차오르는 게이지예요.' } ] },
   { id: 'l3', title: '색과 실험실', icon: 'prism', when: (s) => s.flags.l3Done >= 1, pages: [
-    { at: '.tab[data-tip="실험실"]', tab: 'p', text: '세상에 색이 생겼습니다. <b>프리즘</b>은 실험실에서 씁니다. 별과 육각 건축가도 이곳에서 열려요.' } ] },
+    { at: '.tab[data-name="실험실"]', tab: 'p', text: '세상에 색이 생겼습니다. <b>프리즘</b>은 실험실에서 씁니다. 별과 육각 건축가도 이곳에서 열려요.' } ] },
   { id: 'l4', title: '방울과 채색', icon: 'drop', when: (s) => s.flags.l4Done >= 1, pages: [
-    { at: '.tab[data-tip="아틀리에"]', tab: 'g', text: '<b>방울</b> 주민이 다듬어진 칸을 하나하나 진짜 색으로 칠합니다. 칠한 만큼 조각이 늘고 완성도가 오릅니다.' },
-    { at: '.tab[data-tip="아틀리에"]', tab: 'g', text: '아틀리에의 <b>섬세한 손길</b>을 사면 작은 조형물도 도면보다 곱게 다듬을 수 있어요.' } ] },
+    { at: '.tab[data-name="아틀리에"]', tab: 'g', text: '<b>방울</b> 주민이 다듬어진 칸을 하나하나 진짜 색으로 칠합니다. 칠한 만큼 조각이 늘고 완성도가 오릅니다.' },
+    { at: '.tab[data-name="아틀리에"]', tab: 'g', text: '아틀리에의 <b>섬세한 손길</b>을 사면 작은 조형물도 도면보다 곱게 다듬을 수 있어요.' } ] },
   { id: 'l5', title: '겹과 폴짝', icon: 'layers', when: (s) => s.flags.l5Done >= 1 && (s.zup.layer || 0) >= 1, pages: [
     { at: '#layerw', text: '세상 뒤에 <b>겹</b>이 생겼습니다. 이 버튼이나 <b>Q</b> / <b>E</b>로 보고 있는 겹을 바꿀 수 있어요. 블록과 설계도는 보고 있는 겹에 놓입니다.' },
     { at: '#cv', text: '<b>폴짝</b> 주민은 일이 없는 주민을 비어 있는 겹으로 데려갑니다.' } ] },
   { id: 'l6', title: '마을', icon: 'house', when: (s) => s.era >= 1, pages: [
     { at: '#cv', text: '이제 주민들은 <b>집</b>에서 잡니다. 잠은 <b>수명</b>을 회복합니다. 집이 모자라면 밖에서 자서 수명이 빨리 줄어요.' },
     { at: '#cur', text: '하루가 흐르고 달이 차오릅니다. 가끔 <b>오로라</b>나 <b>일식</b>이 오면 잠시 조각이 세 배가 됩니다.' },
-    { at: '.tab[data-tip="마을"]', tab: 'town', text: '「마을」 탭에서 다음 <b>시대</b>의 조건을 확인하세요. 조건을 모두 채우면 시대가 바뀝니다.' } ] },
+    { at: '.tab[data-name="마을"]', tab: 'town', text: '「마을」 탭에서 다음 <b>시대</b>의 조건을 확인하세요. 조건을 모두 채우면 시대가 바뀝니다.' } ] },
   { id: 'zones', title: '구역', icon: 'grid', when: (s) => s.era >= 1 && s.stats.played > 0 && T.vil && T.vil.population() >= 4, pages: [
     { at: '.zones', tab: 'town', text: '구역을 고르고 바닥을 끌어 칠하면 그곳에는 구역에 맞는 건축물만 지어집니다. 빽빽한 곳을 칠하면 안 맞는 건축물을 쿵쿵 주민이 치우고 다시 지어요.' } ] },
   { id: 'family', title: '가족과 일꾼', icon: 'baby', when: (s) => s.ms >= 18, pages: [
     { at: '#cv', text: '집에 둘 이상 살면 밤에 <b>아기</b>가 태어납니다. 아기는 자라서 <b>일꾼</b>이 되고, 시장과 생산 건축물에서 <b>물자</b>를 만들어요.' } ] },
   { id: 'auto', title: '물자 창고', icon: 'auto', when: (s) => s.ms >= 19, pages: [
-    { at: '.tab[data-tip="물자"]', tab: 'auto', text: '물자로 고용, 레벨업, 업그레이드를 <b>자동화</b>하고 리셋해도 업그레이드를 지킬 수 있습니다. 자동화는 버튼으로 켜고 끕니다.' } ] },
+    { at: '.tab[data-name="물자"]', tab: 'auto', text: '물자로 고용, 레벨업, 업그레이드를 <b>자동화</b>하고 리셋해도 업그레이드를 지킬 수 있습니다. 자동화는 버튼으로 켜고 끕니다.' } ] },
   { id: 'radial', title: '부탁 메뉴', icon: 'star4', when: (s) => s.stats.clicks > 60 && !s.stats.radial && s.archs.length >= 3, pages: [
     { at: '#cv', text: '<b>오른쪽 버튼을 짧게</b> 누르면 부탁 메뉴가 열립니다. 「모여」, 「춤추기」, 「따라와」… 「모여」 다음 「흩어져」 하면 밤에도 일해요.' } ] },
 ];

@@ -406,7 +406,7 @@
     ok.classList.add('in');
     await new Promise((res) => { const t = setTimeout(res, 4200 + m.rewards.length * 300); ok.addEventListener('click', () => { clearTimeout(t); res(); }, { once: true }); });
     // cards fly toward the tab they unlocked, which then shows NEW
-    box.querySelectorAll('.msc').forEach((c, i) => { const r = m.rewards[i]; const tab = r.tab && document.querySelector(`.tab[data-tip="${({ work: '작업장', v: '공방', s: '석공소', p: '실험실', g: '아틀리에', z: '층계', l: '등불', auto: '물자', bp: '설계도' })[r.tab] || ''}"]`); const rc = c.getBoundingClientRect(); if (tab) FX.flyTo(rc.left + rc.width / 2, rc.top + rc.height / 2, tab, PAL()[i % PAL().length], 5); });
+    box.querySelectorAll('.msc').forEach((c, i) => { const r = m.rewards[i]; const tab = r.tab && document.querySelector(`.tab[data-name="${({ work: '작업장', v: '공방', s: '석공소', p: '실험실', g: '아틀리에', z: '층계', l: '등불', auto: '물자', bp: '설계도' })[r.tab] || ''}"]`); const rc = c.getBoundingClientRect(); if (tab) FX.flyTo(rc.left + rc.width / 2, rc.top + rc.height / 2, tab, PAL()[i % PAL().length], 5); });
     box.classList.add('out');
     await anim(500, (k) => { el.style.background = `rgba(30,28,34,${0.62 * (1 - k)})`; });
     el.className = 'seq'; el.innerHTML = ''; el.style.background = '';

@@ -131,7 +131,7 @@
       const shop = t.id in SHOP_STORE;
       const isNew = t.layer && !s.flags.seenTabs[t.id];
       const iconK = TAB_ICON[t.id] || 'dot';
-      const b = T.h(`<button class="tab ${shop ? 'shoptab' : ''} ${t.layer ? 'tab-l' + t.layer : ''} ${UI.tab === t.id ? 'on' : ''}" data-tip="${t.name}"><span class="tab-ic">${shop ? ic(iconK) : T.icon(iconK)}</span><span class="tab-n">${t.name}</span>${isNew ? '<i class="newbadge">NEW</i>' : ''}${t.dot ? '<i class="newdot"></i>' : ''}<i class="availdot"></i></button>`);
+      const b = T.h(`<button class="tab ${shop ? 'shoptab' : ''} ${t.layer ? 'tab-l' + t.layer : ''} ${UI.tab === t.id ? 'on' : ''}" data-name="${t.name}" ${shop ? `data-tip="${t.name}"` : ''}><span class="tab-ic">${shop ? ic(iconK) : T.icon(iconK)}</span><span class="tab-n">${t.name}</span>${isNew ? '<i class="newbadge">NEW</i>' : ''}${t.dot ? '<i class="newdot"></i>' : ''}<i class="availdot"></i></button>`);
       b.addEventListener('click', () => { if (UI.tab === t.id) return; UI.tab = t.id; s.flags.seenTabs[t.id] = 1; T.audio.play('tab'); UI.rebuildPanel(true); });
       if (shop) bind(b, () => b.classList.toggle('avail', UI.tab !== t.id && shopAffordable(SHOP_STORE[t.id])));
       (shop ? rows.shop : rows.main).appendChild(b);
