@@ -37,6 +37,7 @@
   }
   function hide() { clearTimeout(timer); timer = null; cur = null; if (tipEl) tipEl.classList.remove('on'); }
   T.hideTip = hide;
+  T.showTip = (t) => { cur = t; place(t); };
   document.addEventListener('pointerover', (e) => {
     if (e.pointerType === 'touch') return;
     const t = e.target.closest && e.target.closest('[data-tip],[data-tip-fn]');

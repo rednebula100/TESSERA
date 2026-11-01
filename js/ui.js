@@ -208,7 +208,7 @@
       const { n } = getPlan();
       let k = 0;
       for (let i = 0; i < n; i++) { if (!onBuy()) break; k++; }
-      if (k) { if (!quiet) T.audio.play(k > 1 ? 'buyMany' : 'buy'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); T.fx.uiBurst(b, k); updateBinds(); return true; }
+      if (k) { if (!quiet) T.audio.play(k > 1 ? 'buyMany' : 'buy'); if (T.mobileUI) T.mobileUI.buzz(k > 1 ? 14 : 8); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); T.fx.uiBurst(b, k); updateBinds(); return true; }
       if (!quiet) T.audio.play('deny'); return false;
     });
     bind(b, () => {
@@ -676,7 +676,7 @@
     if (T.ui.modalOpen() || document.querySelector('#titlecard')) return;
     if (!tutEl || tutEl.dataset.i !== String(s.flags.tut)) {
       if (tutEl) tutEl.remove();
-      tutEl = T.h(`<div class="tut guide" data-i="${s.flags.tut}"><div class="g-head"><span class="g-ic">${T.icon('book')}</span><b>첫걸음</b><span class="g-n">${s.flags.tut + 1} / ${T.TUTORIAL.length}</span></div><p>${step.text}</p><div class="g-dots">${T.TUTORIAL.map((_, i) => `<i class="${i === s.flags.tut ? 'on' : i < s.flags.tut ? 'done' : ''}"></i>`).join('')}</div><div class="tut-a"><button class="mini" data-k="skip">건너뛰기</button>${step.wait ? '<span class="tut-w">해 보세요</span>' : `<button class="mini on" data-k="next">${s.flags.tut === T.TUTORIAL.length - 1 ? '시작하기' : '다음'}</button>`}</div></div>`);
+      tutEl = T.h(`<div class="tut guide" data-i="${s.flags.tut}"><div class="g-head"><span class="g-ic">${T.icon('book')}</span><b>첫걸음</b><span class="g-n">${s.flags.tut + 1} / ${T.TUTORIAL.length}</span></div><p>${(T.mobile && step.m) || step.text}</p><div class="g-dots">${T.TUTORIAL.map((_, i) => `<i class="${i === s.flags.tut ? 'on' : i < s.flags.tut ? 'done' : ''}"></i>`).join('')}</div><div class="tut-a"><button class="mini" data-k="skip">건너뛰기</button>${step.wait ? '<span class="tut-w">해 보세요</span>' : `<button class="mini on" data-k="next">${s.flags.tut === T.TUTORIAL.length - 1 ? '시작하기' : '다음'}</button>`}</div></div>`);
       tutEl.querySelector('[data-k=skip]').addEventListener('click', () => { T.audio.play('close'); endTutorial(); });
       const nx = tutEl.querySelector('[data-k=next]'); if (nx) nx.addEventListener('click', () => { s.flags.tut++; T.audio.play('page'); UI.tutorial(); });
       document.body.appendChild(tutEl);
@@ -691,7 +691,7 @@
     const g = guide, p = g.pages[gpage];
     if (p.tab && UI.tab !== p.tab && tabsDef().some((t) => t.id === p.tab)) { UI.tab = p.tab; S().flags.seenTabs[p.tab] = 1; UI.rebuildPanel(true); }
     if (!guideEl) { guideEl = T.h('<div class="tut guide gbook"></div>'); document.body.appendChild(guideEl); requestAnimationFrame(() => guideEl && guideEl.classList.add('in')); }
-    guideEl.innerHTML = `<div class="g-head"><span class="g-ic">${T.icon(g.icon)}</span><b>${g.title}</b><span class="g-n">안내서</span></div><p>${p.text}</p><div class="g-dots">${g.pages.map((_, i) => `<i class="${i === gpage ? 'on' : i < gpage ? 'done' : ''}"></i>`).join('')}</div><div class="tut-a"><button class="mini" data-k="later">${g.pages.length > 1 ? '닫기' : ''}</button><button class="mini on" data-k="next">${gpage < g.pages.length - 1 ? '다음' : '알겠어요'}</button></div>`;
+    guideEl.innerHTML = `<div class="g-head"><span class="g-ic">${T.icon(g.icon)}</span><b>${g.title}</b><span class="g-n">안내서</span></div><p>${(T.mobile && p.m) || p.text}</p><div class="g-dots">${g.pages.map((_, i) => `<i class="${i === gpage ? 'on' : i < gpage ? 'done' : ''}"></i>`).join('')}</div><div class="tut-a"><button class="mini" data-k="later">${g.pages.length > 1 ? '닫기' : ''}</button><button class="mini on" data-k="next">${gpage < g.pages.length - 1 ? '다음' : '알겠어요'}</button></div>`;
     const later = guideEl.querySelector('[data-k=later]'); if (!later.textContent) later.style.visibility = 'hidden';
     later.addEventListener('click', closeGuide);
     guideEl.querySelector('[data-k=next]').addEventListener('click', () => { if (gpage < g.pages.length - 1) { gpage++; T.audio.play('page'); showGuidePage(); } else { T.audio.play('check'); closeGuide(); } });
@@ -822,11 +822,12 @@
   UI.radial = function (sx, sy, wx) {
     UI.closeRadial();
     const el = T.h(`<div class="radial" style="left:${sx}px;top:${sy}px"><div class="radial-core"></div></div>`);
+    const t0 = performance.now(); // the finger that opened it (long-press) must not pick a petal when it lifts
     RADIAL.forEach((r, i) => {
       const an = -Math.PI / 2 + (i / RADIAL.length) * Math.PI * 2;
       const b = T.h(`<button class="radial-b" style="--x:${Math.cos(an) * 62}px;--y:${Math.sin(an) * 62}px;--d:${i * 25}ms">${T.icon(r.icon)}<small>${r.name}</small></button>`);
       b.addEventListener('pointerdown', (e) => e.stopPropagation());
-      b.addEventListener('click', () => { const n = T.ent.groupAction(r.id, wx); S().stats.radial++; T.audio.pet(); UI.toast(n ? `${n}명이 「${r.name}」 부탁을 들었습니다.` : '근처에 들어줄 친구가 없어요.'); UI.closeRadial(); });
+      b.addEventListener('click', () => { if (performance.now() - t0 < 350) return; const n = T.ent.groupAction(r.id, wx); S().stats.radial++; T.audio.pet(); UI.toast(n ? `${n}명이 「${r.name}」 부탁을 들었습니다.` : '근처에 들어줄 친구가 없어요.'); UI.closeRadial(); });
       el.appendChild(b);
     });
     document.body.appendChild(el);
@@ -874,6 +875,7 @@
     snd.appendChild(slider('o-vu', '화면 소리', s.settings.vol.ui, (v) => { s.settings.vol.ui = v; T.audio.applyVolume(); }));
     const ctrl = $('#o-ctrl');
     ctrl.appendChild(toggle('클릭으로 블록 놓기', !s.settings.noPlace, (v) => { s.settings.noPlace = !v; }, '끄면 하늘을 클릭해도 블록이 놓이지 않습니다. 짓는 중인 건축물의 빈칸 채우기, 쓰다듬기, 들기는 그대로 됩니다.'));
+    if (T.mobile) ctrl.appendChild(toggle('진동', s.settings.haptic !== false, (v) => { s.settings.haptic = v; if (v && T.mobileUI) T.mobileUI.buzz(20); }, '블록을 놓거나 살 때 짧게 진동합니다.'));
     if (UI.buyUnlocked()) ctrl.appendChild(T.h(`<p class="tab-note left">구매 수량은 화면 아래 「간격」 옆 버튼에서 고릅니다.</p>`));
     const sk = $('#o-skip');
     if (sk) for (const [n, , name] of skips) sk.appendChild(toggle(`${name} 연출 생략`, !!s.settings.skip[n], (v) => (s.settings.skip[n] = v)));

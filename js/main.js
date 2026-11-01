@@ -29,16 +29,16 @@
     const nz = T.clamp(cam.tz * f, ZMIN, ZMAX);
     const [wx, wy] = T.s2w(sx, sy);
     cam.tx = wx - (sx - cam.W / 2) / nz;
-    cam.ty = wy - (cam.H / 2 - sy) / nz;
+    cam.ty = wy - ((cam.cy ?? cam.H / 2) - sy) / nz;
     cam.tz = nz;
     clampCam();
   }
   function clampCam() {
-    const minY = cam.H / 2 / cam.tz - 70 / cam.tz - 10;
+    const minY = (cam.cy ?? cam.H / 2) / cam.tz - 70 / cam.tz - 10;
     cam.ty = Math.min(Math.max(cam.ty, minY), 20000);
     cam.tx = T.clamp(cam.tx, -30000, 30000);
   }
-  M.zoomBy = (f) => zoomAt(cam.W / 2 - 170, cam.H / 2, f);
+  M.zoomBy = (f) => zoomAt(cam.W / 2 - 170, cam.cy ?? cam.H / 2, f);
   M.focus = (x, y, z) => { cam.tx = x; cam.ty = y; cam.tz = z || Math.max(cam.tz, 1.6); clampCam(); };
   M.cursorX = () => mouse.wx;
   M.hitstop = (t) => { hitstop = Math.max(hitstop, t); };
@@ -50,8 +50,9 @@
   }
   M.home = function () {
     const e = extents();
-    const z = T.clamp(Math.min((cam.W - 420) / (e.R - e.L + 120), (cam.H - 200) / (e.top + 120)), ZMIN, 2.4);
-    cam.tz = z; cam.tx = (e.L + e.R) / 2 + 170 / z; cam.ty = (cam.H / 2 - 80) / z;
+    const VH = 2 * (cam.cy ?? cam.H / 2), side = T.mobile ? (T.mobileUI.side ? (document.getElementById('panel').offsetWidth + 24) : 40) : 420;
+    const z = T.clamp(Math.min((cam.W - side) / (e.R - e.L + 120), (VH - 200) / (e.top + 120)), ZMIN, 2.4);
+    cam.tz = z; cam.tx = (e.L + e.R) / 2 + (T.mobile ? (T.mobileUI.side ? side / 2 : 0) : 170) / z; cam.ty = (VH / 2 - 80) / z;
     clampCam();
   };
   M.observe = function () {
@@ -137,6 +138,7 @@
   // ── input ────────────────────────────────────────────────
   let down = null, rdown = null, pinch = null;
   const ptrs = new Map();
+  if (!T.mobile) {
   cv.addEventListener('pointerdown', (e) => {
     T.audio.init();
     if (observing) { M.observe(); return; }
@@ -209,6 +211,30 @@
   cv.addEventListener('pointerup', endPtr);
   cv.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); if (down && down.held) T.ent.release(down.ent); down = null; rdown = null; pinch = null; });
   cv.addEventListener('wheel', (e) => { e.preventDefault(); if (!observing) zoomAt(e.clientX, e.clientY, Math.exp(-T.clamp(e.deltaY, -120, 120) * 0.0018)); }, { passive: false });
+  } else {
+    // touch devices: their own gestures (js/mobile.js). the PC handlers above are not registered at all
+    const pan = (dx, dy) => { cam.tx -= dx / cam.tz; cam.ty += dy / cam.tz; cam.x -= dx / cam.z; cam.y += dy / cam.z; clampCam(); };
+    T.mobileUI.gestures({
+      cam, pan, zoomAt, canAct,
+      observing: () => observing, observe: () => M.observe(),
+      setMouse: (sx, sy, wx, wy) => { mouse = { sx, sy, wx, wy }; },
+      click: (wx, wy, quiet) => leftClick(wx, wy, quiet),
+      // fat fingers: the empty cell nearest to the tap, within a small radius
+      nearestCell: (wx, wy, r) => {
+        let best = null, bd = r * r;
+        for (const st of T.G.s.structs) {
+          if ((st.z || 0) !== T.view() || T.st.done(st) || st.clearing) continue;
+          const [a, b2, top, bot] = T.st.bbox(st);
+          if (wx < a - r || wx > b2 + r || wy > top + r || wy < Math.min(bot, st.y || 0) - r) continue;
+          const sh = T.st.shape(st);
+          sh.blocks.forEach((bl, i) => { if (st.f[i]) return; const [cx, cy] = T.st.cellPos(st, i); const d = (cx - wx) ** 2 + (cy - wy) ** 2; if (d < bd) { bd = d; best = { st, i }; } });
+        }
+        return best;
+      },
+      pickNear: (wx, wy, r) => T.ent.pick(wx, wy) || T.ent.pick(wx + r, wy) || T.ent.pick(wx - r, wy) || T.ent.pick(wx, wy + r),
+      fillCell: (st, i) => { if (!canAct()) { const [x, y] = T.st.cellPos(st, i); pending = [x, y]; return; } contribute(st, i); T.mobileUI.buzz(6); },
+    });
+  }
   addEventListener('keydown', (e) => {
     if (!(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) && T.G.layers() > 1) {
       if (e.key === 'q' || e.key === 'Q' || e.key === 'PageUp') { M.layerBy(1); e.preventDefault(); return; }
@@ -381,6 +407,7 @@
     T.G.rebuild();
     M.reindex();
     T.ui.init();
+    if (T.mobileUI) T.mobileUI.init();
     if (loaded && (s.archs.length || s.structs.length)) M.home(); else { cam.tx = cam.x = 0; cam.ty = cam.y = 120; cam.tz = cam.z = 2.4; }
     clampCam(); cam.x = cam.tx; cam.y = cam.ty; cam.z = cam.tz;
     if (off) setTimeout(() => T.ui.offline(off), 2400);

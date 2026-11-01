@@ -1,0 +1,135 @@
+/* ─────────────────────────────────────────────────────────────
+   TESSERA mobile — 휴대폰/태블릿 전용. 모든 규칙은 body.mobile 아래에만 있어서 PC에는 적용되지 않습니다.
+   세로: 아래에서 끌어올리는 시트 / 가로: 손가락 크기의 옆 패널
+   ───────────────────────────────────────────────────────────── */
+body.mobile { --sheet-h: 50vh; --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px); --safe-l: env(safe-area-inset-left, 0px); --safe-r: env(safe-area-inset-right, 0px);
+  -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+body.mobile #cv { touch-action: none; }
+body.mobile button, body.mobile .tab, body.mobile .row { touch-action: manipulation; }
+body.mobile input, body.mobile textarea { -webkit-user-select: text; user-select: text; font-size: 16px; }
+
+/* no hover effects on touch */
+body.mobile .row:hover { transform: none; box-shadow: 3px 3px 0 var(--shadow); }
+body.mobile .tab:hover { transform: none; }
+
+/* ── HUD: compact, tap to expand ── */
+body.mobile #hud { top: calc(8px + var(--safe-t)); left: calc(8px + var(--safe-l)); }
+body.mobile .brand { display: none; }
+body.mobile #cur { min-width: 0; padding: 7px 10px 7px 9px; }
+body.mobile .cur-val { font-size: 18px; }
+body.mobile #cur .cur-row, body.mobile #cur .cur-town { display: none !important; }
+body.mobile #cur.m-open .cur-row.show { display: flex !important; }
+body.mobile #cur.m-open .cur-town.show { display: flex !important; flex-wrap: wrap; max-width: 64vw; }
+body.mobile #cur::after { content: '▾'; position: absolute; right: 4px; bottom: 2px; font-size: 9px; color: var(--muted); }
+body.mobile #cur.m-open::after { content: '▴'; }
+body.mobile #cur { position: relative; }
+
+/* ── reset seals: one chip, list on demand ── */
+body.mobile #seals { display: none; position: fixed; top: calc(52px + var(--safe-t)); right: calc(8px + var(--safe-r)); left: auto; transform: none; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; z-index: 40; padding: 2px; }
+body.mobile #seals.open { display: flex; animation: fadeUp .18s both; }
+body.mobile #seals .seal { min-height: 48px; }
+body.mobile #m-seals { position: fixed; top: calc(8px + var(--safe-t)); right: calc(8px + var(--safe-r)); z-index: 41; height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 6px; border: 2px solid var(--line); background: var(--paper); box-shadow: 3px 3px 0 var(--shadow); font-size: 12px; }
+body.mobile #m-seals .pxi { width: 12px; height: 12px; margin: 0; }
+body.mobile #m-seals b { font-family: 'GalmuriMono11'; font-weight: 400; background: var(--ink); color: var(--paper); padding: 0 5px; }
+body.mobile #m-seals b:empty { display: none; }
+body.mobile #m-seals.ready { animation: blink 1.2s steps(2) infinite; border-color: var(--ready); }
+
+/* ── panel: bottom sheet (portrait) ── */
+body.mobile.sheetpanel #panel { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: var(--sheet-h); border-left: 0; border-right: 0; border-bottom: 0; box-shadow: 0 -4px 0 var(--shadow); padding-bottom: var(--safe-b); z-index: 30; transition: height .24s cubic-bezier(.2,.8,.2,1), transform .45s; }
+body.mobile.sheetpanel #panel.dragging { transition: none; }
+body.mobile.sheetpanel.panel-hidden #panel { transform: translateY(calc(100% - 40px)); }
+body.mobile .m-grip { display: none; }
+body.mobile.sheetpanel .m-grip { display: grid; place-items: center; height: 20px; flex: none; cursor: grab; touch-action: none; background: var(--paper2); }
+body.mobile.sheetpanel .m-grip i { width: 44px; height: 5px; background: var(--ink2); box-shadow: 0 2px 0 var(--soft); }
+body.mobile.sheetpanel[data-sheet="peek"] #tabbody { visibility: hidden; }
+
+/* ── panel: side (landscape) ── */
+body.mobile.sidepanel #panel { top: calc(8px + var(--safe-t)); right: calc(8px + var(--safe-r)); bottom: calc(8px + var(--safe-b)); width: 300px; left: auto; height: auto; }
+body.mobile.sidepanel.tablet #panel { width: 380px; }
+
+/* tabs: one swipeable strip per row, finger-sized */
+body.mobile #tabs { padding: 4px 4px 0; }
+body.mobile .tabrow { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; }
+body.mobile .tabrow::-webkit-scrollbar { display: none; }
+body.mobile .tab { flex: 0 0 auto; min-width: 58px; max-width: none; min-height: 46px; padding: 6px 6px 5px; }
+body.mobile .tab .tab-n { font-size: 10px; max-width: none; }
+body.mobile .tab .tab-ic .pxi, body.mobile .tab .tab-ic .ic { width: 14px; height: 14px; }
+body.mobile #tabbody { padding: 12px 12px 18px; -webkit-overflow-scrolling: touch; }
+
+/* finger-sized rows and buttons */
+body.mobile .row { padding: 10px; gap: 10px; }
+body.mobile .row-name { font-size: 13px; }
+body.mobile .row-desc { font-size: 11px; }
+body.mobile .buy { min-width: 86px; min-height: 46px; }
+body.mobile .buy-c { font-size: 13px; }
+body.mobile .mini, body.mobile .chip, body.mobile .chip.tgt, body.mobile .dt { min-height: 36px; padding: 6px 10px; font-size: 11px; }
+body.mobile .btn { min-height: 44px; }
+body.mobile .ro { min-width: 52px; min-height: 60px; }
+body.mobile .bpc { min-height: 92px; }
+body.mobile .ms-head { min-height: 42px; font-size: 12px; }
+body.mobile .ptoggle { min-height: 44px; font-size: 13px; }
+body.mobile .ps-track { height: 16px; }
+body.mobile .ps-knob { top: -6px; width: 14px; height: 24px; margin-left: -7px; }
+
+/* ── dock strip (gap, buy amount, layers) and the action rail ── */
+body.mobile #dock { left: calc(8px + var(--safe-l)); bottom: calc(var(--sheet-h) + 10px); flex-wrap: wrap; max-width: 62vw; transition: bottom .24s cubic-bezier(.2,.8,.2,1); }
+body.mobile #dock > .dk:not(.gap) { display: none; }
+body.mobile #dock .dk.gap { height: 40px; padding: 0 10px; font-size: 12px; }
+body.mobile .dk-layer { height: 40px; }
+body.mobile .dk-layer .lw-b { width: 30px; height: 32px; }
+body.mobile.sidepanel #dock { bottom: calc(10px + var(--safe-b)); }
+body.mobile #m-rail { position: fixed; right: calc(8px + var(--safe-r)); bottom: calc(var(--sheet-h) + 10px); z-index: 25; display: flex; flex-direction: column; gap: 8px; transition: bottom .24s cubic-bezier(.2,.8,.2,1); }
+body.mobile.sidepanel #m-rail { right: auto; left: calc(8px + var(--safe-l)); bottom: calc(62px + var(--safe-b)); flex-direction: row; }
+body.mobile.sidepanel.tablet #m-rail { bottom: calc(64px + var(--safe-b)); }
+body.mobile .mr-b { width: 46px; height: 46px; border: 2px solid var(--line); background: var(--paper); box-shadow: 3px 3px 0 var(--shadow); display: grid; place-items: center; }
+body.mobile .mr-b .pxi { width: 18px; height: 18px; margin: 0; }
+body.mobile .mr-b:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--shadow); }
+body.mobile .mr-b.on { background: var(--ink); }
+body.mobile.color .mr-b.on { background: #e07a5f; }
+body.mobile.sheetpanel[data-sheet="full"] #m-rail, body.mobile.sheetpanel[data-sheet="full"] #dock { opacity: 0; pointer-events: none; }
+
+/* ── cards and modals become sheets ── */
+body.mobile #card { left: 8px !important; right: 8px; width: auto; top: auto; bottom: calc(var(--sheet-h) + 64px); transform: none !important; z-index: 35; max-height: 45vh; overflow-y: auto; }
+body.mobile.sidepanel #card { right: auto; width: 320px; bottom: calc(118px + var(--safe-b)); }
+body.mobile #card .m-x { width: 40px; height: 40px; }
+body.mobile #modal .m-box { width: 100vw; max-width: 100vw; max-height: 100%; height: auto; overflow-y: auto; padding: calc(18px + var(--safe-t)) 16px calc(18px + var(--safe-b)); border-left: 0; border-right: 0; }
+body.mobile.tablet #modal .m-box { width: min(720px, 94vw); border: 2px solid var(--line); }
+body.mobile #modal .m-x { width: 44px; height: 44px; }
+body.mobile .draft { flex-direction: column; }
+body.mobile .draft-list { width: auto; max-height: 150px; border-right: 0; border-bottom: 2px solid var(--line); }
+body.mobile .sheet canvas { width: 100%; height: auto; }
+body.mobile .tb-grid { grid-template-columns: 1fr 1fr; }
+body.mobile .m-settings .set-body { max-height: none; }
+body.mobile .gb-list { grid-template-columns: 1fr; max-height: none; }
+
+/* ── toasts, tutorial and guide cards sit at the top on touch screens ── */
+body.mobile #toasts { top: calc(56px + var(--safe-t)) !important; bottom: auto; left: 50%; transform: translateX(-50%); flex-direction: column; width: max-content; max-width: 90vw; }
+body.mobile .toast { text-align: center; }
+body.mobile .tut, body.mobile .tut.guide { left: 8px; right: 8px; top: calc(56px + var(--safe-t)); bottom: auto; width: auto; transform: translateY(-8px); }
+body.mobile .tut.in { transform: none; }
+body.mobile.tablet .tut, body.mobile.tablet .tut.guide { left: 50%; right: auto; width: 420px; transform: translate(-50%, -8px); }
+body.mobile.tablet .tut.in { transform: translate(-50%, 0); }
+body.mobile .tut .mini { min-height: 38px; padding: 6px 14px; }
+body.mobile #ptip { max-width: 80vw; }
+body.mobile #hint { bottom: calc(var(--sheet-h) + 64px); }
+
+/* ── request menu: bigger petals ── */
+body.mobile .radial-b { width: 58px; height: 58px; left: -29px; top: -29px; }
+
+/* ── blueprint placement confirm bar ── */
+#m-place { display: none; }
+body.mobile #m-place { position: fixed; left: 50%; bottom: calc(var(--sheet-h) + 66px); transform: translateX(-50%); z-index: 45; display: none; align-items: center; gap: 8px; padding: 8px 10px; background: var(--paper); border: 2px solid var(--line); box-shadow: 4px 4px 0 var(--shadow); white-space: nowrap; font-size: 11px; }
+body.mobile #m-place.on { display: flex; animation: fadeUp .2s both; }
+body.mobile.sidepanel #m-place { bottom: calc(120px + var(--safe-b)); left: calc(50% - 160px); }
+
+/* ── sequences scale down on phones ── */
+body.mobile.phone .seq-name { font-size: 34px; letter-spacing: 10px; padding-left: 10px; }
+body.mobile.phone .msc { width: 104px; min-height: 84px; font-size: 10px; }
+body.mobile.phone .ms-title b { font-size: 22px; }
+body.mobile .stamp { transform-origin: top center; }
+body.mobile.sidepanel #m-seals { right: calc(316px + var(--safe-r)); }
+body.mobile.sidepanel.tablet #m-seals { right: calc(396px + var(--safe-r)); }
+body.mobile.sidepanel #seals { right: calc(316px + var(--safe-r)); }
+body.mobile.sidepanel.tablet #seals { right: calc(396px + var(--safe-r)); }
+body.mobile #modal .m-box > .m-x { position: fixed; top: calc(8px + var(--safe-t)); right: calc(8px + var(--safe-r)); z-index: 60; background: var(--paper); border: 2px solid var(--line); box-shadow: 2px 2px 0 var(--shadow); }
+body.mobile.tablet #modal .m-box > .m-x { position: absolute; top: 8px; right: 8px; }
