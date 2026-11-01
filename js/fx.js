@@ -245,6 +245,78 @@
     effects.push({ type: 'zone', x0: z.x0, x1: z.x1, color: (T.ZONES[z.type] || T.ZONES.park).color, t: 0, dur: 1.4 });
   };
 
+  // ── UI layer: pixel particles over the panels (screen space) ──
+  const uip = [];
+  let uicv = null, uictx = null;
+  function uiCanvas() {
+    if (uicv) return uictx;
+    uicv = document.createElement('canvas'); uicv.id = 'uifx';
+    document.body.appendChild(uicv);
+    const fit = () => { uicv.width = innerWidth; uicv.height = innerHeight; };
+    fit(); addEventListener('resize', fit);
+    uictx = uicv.getContext('2d');
+    return uictx;
+  }
+  const UIPAL = () => (colorOn() ? ['#ffd166', '#ef6f91', '#81b29a', '#5b8fb9', '#ffffff', '#e9b872'] : ['#2b2b2b', '#8a8a88', '#ffffff', '#5a5a58']);
+  function uiAdd(p) { if (uip.length < 600) uip.push(p); }
+  // little pixel sparks out of a button (k = how many were bought)
+  FX.uiBurst = function (el, k = 1) {
+    if (!el || !el.getBoundingClientRect) return;
+    uiCanvas();
+    const r = el.getBoundingClientRect(), pal = UIPAL();
+    const n = Math.min(26, 6 + k * 2);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 120;
+      uiAdd({ x: r.left + r.width * (0.2 + Math.random() * 0.6), y: r.top + r.height / 2, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60, g: 380, life: 0.5 + Math.random() * 0.3, max: 0.8, s: Math.random() < 0.3 ? 3 : 2, c: pal[i % pal.length], kind: Math.random() < 0.25 ? 'plus' : 'px' });
+    }
+    if (k > 1) uiAdd({ x: r.left + r.width / 2, y: r.top - 4, vx: 0, vy: -34, g: 0, life: 0.9, max: 0.9, s: 1, c: colorOn() ? '#c48a00' : '#2b2b2b', kind: 'text', text: `×${k}` });
+  };
+  // a panel row lights up once
+  FX.rowFlash = function (el) { if (!el) return; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); };
+  // a roster tile: white pixel frame flash, a +n badge and three stars
+  FX.tileLevel = function (el, n, delay = 0) {
+    if (!el) return;
+    setTimeout(() => {
+      uiCanvas();
+      el.classList.remove('lvflash'); void el.offsetWidth; el.classList.add('lvflash');
+      const r = el.getBoundingClientRect(), pal = UIPAL();
+      uiAdd({ x: r.left + r.width / 2, y: r.top + 4, vx: 0, vy: -30, g: 0, life: 1, max: 1, s: 1, c: colorOn() ? '#c48a00' : '#2b2b2b', kind: 'text', text: `+${n}` });
+      for (let i = 0; i < 3; i++) uiAdd({ x: r.left + r.width / 2, y: r.top + r.height / 2, vx: (i - 1) * 50, vy: -80 - Math.random() * 40, g: 260, life: 0.7, max: 0.7, s: 2, c: pal[i], kind: 'star' });
+    }, delay);
+  };
+  // fly a currency icon from a point to the HUD row
+  FX.flyTo = function (fromX, fromY, toEl, color, n = 8) {
+    uiCanvas();
+    const r = toEl && toEl.getBoundingClientRect ? toEl.getBoundingClientRect() : { left: 40, top: 60, width: 10, height: 10 };
+    for (let i = 0; i < n; i++) uiAdd({ x: fromX + (Math.random() - 0.5) * 40, y: fromY + (Math.random() - 0.5) * 30, tx: r.left + 12, ty: r.top + r.height / 2, t: -i * 0.05, life: 1.2, max: 1.2, s: 4, c: color, kind: 'fly' });
+  };
+  FX.drawUI = function (dt) {
+    if (!uicv) return;
+    const g = uictx;
+    g.clearRect(0, 0, uicv.width, uicv.height);
+    for (let i = uip.length - 1; i >= 0; i--) {
+      const p = uip[i];
+      p.life -= dt;
+      if (p.life <= 0) { uip.splice(i, 1); continue; }
+      if (p.kind === 'fly') {
+        p.t += dt; if (p.t < 0) continue;
+        const k = T.easeInOut(Math.min(1, p.t / 0.8));
+        const x = T.lerp(p.x, p.tx, k), y = T.lerp(p.y, p.ty, k) - Math.sin(k * Math.PI) * 60;
+        g.globalAlpha = 1; g.fillStyle = p.c; g.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4); g.fillStyle = '#ffffff'; g.fillRect(Math.round(x) - 2, Math.round(y) - 2, 1, 1);
+        continue;
+      }
+      p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      const a = T.clamp(p.life / p.max, 0, 1);
+      g.globalAlpha = a;
+      g.fillStyle = p.c;
+      const x = Math.round(p.x), y = Math.round(p.y), s = p.s;
+      if (p.kind === 'text') { g.font = '11px Galmuri11, monospace'; g.textAlign = 'center'; g.fillText(p.text, x, y); }
+      else if (p.kind === 'plus' || p.kind === 'star') { g.fillRect(x - s, y, s * 3, s); g.fillRect(x, y - s, s, s * 3); }
+      else g.fillRect(x, y, s, s);
+    }
+    g.globalAlpha = 1;
+  };
+
   // ── reset sequences ──────────────────────────────────────
   const seq = () => document.getElementById('seq');
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));

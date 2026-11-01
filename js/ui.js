@@ -103,6 +103,7 @@
     if (s.flags.l6Done) t.push({ id: 'l', name: '등불', layer: 6 });
     if (s.era >= 1) t.push({ id: 'town', name: '마을', layer: 6, dot: T.G.eraReady() });
     if (s.ms >= 19) t.push({ id: 'auto', name: '물자', layer: 7 });
+    if (s.flags.dev) t.push({ id: 'dev', name: '개발', layer: 9 });
     return t;
   }
   function structureSig() {
@@ -132,7 +133,7 @@
     body.classList.toggle('anim', !!animate || lastTab !== UI.tab);
     lastTab = UI.tab;
     $('#panel').dataset.theme = UI.tab;
-    ({ arch: tabArch, people: tabPeople, work: (b) => tabUp(0, b), bp: tabBp, ms: tabMs, v: (b) => tabUp(1, b), s: (b) => tabUp(2, b), p: (b) => tabUp(3, b), g: (b) => tabUp(4, b), z: (b) => tabUp(5, b), l: (b) => tabUp(6, b), town: tabTown, auto: (b) => tabUp(7, b) })[UI.tab](body);
+    ({ arch: tabArch, people: tabPeople, work: (b) => tabUp(0, b), bp: tabBp, ms: tabMs, v: (b) => tabUp(1, b), s: (b) => tabUp(2, b), p: (b) => tabUp(3, b), g: (b) => tabUp(4, b), z: (b) => tabUp(5, b), l: (b) => tabUp(6, b), town: tabTown, auto: (b) => tabUp(7, b), dev: (b) => T.dev.tab(b) })[UI.tab](body);
     body.scrollTop = keep;
     sig = structureSig();
     updateBinds();
@@ -164,21 +165,48 @@
     });
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) btn.addEventListener(ev, stop);
   }
-  function costBtn(costFn, curKey, onBuy, label = '', maxText = '최대') {
-    const b = T.h(`<button class="buy"><span class="buy-l">${label}</span><span class="buy-c">${ic(CUR[curKey].ic)}<b></b></span></button>`);
+  // buy amount (×1 ×5 ×10 ×25 최대), unlocked by a milestone
+  const BUY_STEPS = [1, 5, 10, 25, 0];
+  UI.buyUnlocked = () => S().ms >= 8;
+  UI.buyN = () => (UI.buyUnlocked() ? S().settings.buyN ?? 1 : 1);
+  // how many of a cost sequence to buy now, and what they cost together
+  function plan(costAt, have) {
+    const want = UI.buyN();
+    let n = 0, total = 0;
+    const lim = want === 0 ? 999 : want;
+    while (n < lim) {
+      const c = costAt(n);
+      if (c === null || c === undefined || !(c < Infinity)) break;
+      if (want === 0 && n > 0 && total + c > have) break;
+      total += c; n++;
+    }
+    return { n, total };
+  }
+  // cost button: the inside fills up as you save toward it; full = shimmering edge
+  function costBtn(costAt, curKey, onBuy, label = '', maxText = '최대', multi = false) {
+    const b = T.h(`<button class="buy"><i class="buy-fill"></i><span class="buy-l">${label}</span><span class="buy-c">${ic(CUR[curKey].ic)}<b></b></span><em class="buy-n"></em></button>`);
+    const getPlan = () => (multi ? plan(costAt, S()[curKey]) : (() => { const c = costAt(0); return c === null || c === undefined ? { n: 0, total: 0 } : { n: 1, total: c }; })());
     holdable(b, (quiet) => {
-      if (onBuy()) { if (!quiet) T.audio.buy(); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); updateBinds(); return true; }
-      if (!quiet) T.audio.deny(); return false;
+      const { n } = getPlan();
+      let k = 0;
+      for (let i = 0; i < n; i++) { if (!onBuy()) break; k++; }
+      if (k) { if (!quiet) T.audio.play(k > 1 ? 'buyMany' : 'buy'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); T.fx.uiBurst(b, k); updateBinds(); return true; }
+      if (!quiet) T.audio.play('deny'); return false;
     });
     bind(b, () => {
-      const c = costFn();
-      if (c === null) { b.classList.add('maxed'); b.disabled = true; b.querySelector('b').textContent = maxText; return; }
+      const { n, total } = getPlan();
+      if (!n) { b.classList.add('maxed'); b.disabled = true; b.querySelector('b').textContent = maxText; b.querySelector('.buy-n').textContent = ''; b.style.setProperty('--fill', '0'); return; }
       b.classList.remove('maxed');
-      b.querySelector('b').textContent = fmt(c);
-      b.disabled = !(S()[curKey] >= c);
+      b.querySelector('b').textContent = fmt(total);
+      b.querySelector('.buy-n').textContent = n > 1 ? `×${n}` : '';
+      const have = S()[curKey];
+      b.style.setProperty('--fill', T.clamp(have / Math.max(1e-9, total), 0, 1).toFixed(3));
+      b.disabled = !(have >= total);
+      b.classList.toggle('ready', have >= total);
     });
     return b;
   }
+  UI.costBtn = costBtn;
 
   function tabArch(body) {
     const s = S();
@@ -197,7 +225,7 @@
       }
       const row = T.h(`<div class="row"><div class="pt"></div><div class="row-main"><div class="row-name">${sh.name} 건축가 <small class="own"></small></div><div class="row-desc"></div></div></div>`);
       row.querySelector('.pt').appendChild(T.sprites.portrait(sh.id, s.flags.color, 3, 'normal'));
-      const hb = costBtn(() => (T.G.capFull() ? null : T.G.hireCost(sh.id)), 'shards', () => T.G.hire(sh.id), '고용', '자리 없음');
+      const hb = costBtn((k) => (s.archs.length + k >= T.G.archCap() ? null : T.G.hireCostAt(sh.id, k)), 'shards', () => T.G.hire(sh.id), '고용', '자리 없음', true);
       row.appendChild(hb);
       bind(row, () => { const n = T.G.owned(sh.id); row.querySelector('.own').textContent = n ? `${n}명` : ''; row.querySelector('.row-desc').innerHTML = `블록 ${ic('shard')}${fmt((sh.value + T.G.lv(s.up, 'solid')) * T.G.M)}  ${T.G.cooldown({ s: sh.id }).toFixed(1)}초`; });
       body.appendChild(row);
@@ -277,11 +305,12 @@
   function upRow(def, store) {
     const s = S(), book = T.G.book(store), curKey = T.G.curKey(store);
     const row = T.h(`<div class="row up"><div class="up-ic">${T.icon(def.icon)}</div><div class="row-main"><div class="row-name">${def.name} <small class="lvl"></small></div><div class="row-desc"></div></div></div>`);
-    const btn = costBtn(() => { const l = book[def.id] || 0; return l >= T.G.maxOf(store, def) ? null : def.cost(l); }, curKey, () => {
+    const btn = costBtn((k) => { const l = (book[def.id] || 0) + k; return l >= T.G.maxOf(store, def) ? null : def.cost(l); }, curKey, () => {
       const ok = T.G.buyUp(store, def);
-      if (ok && def.shape) { T.audio.unlock(); UI.toast(`새 건축가 해금: ${T.SHAPE[def.shape].name}`, 'big'); setTimeout(() => UI.rebuildPanel(), 0); return false; }
+      if (ok && def.shape) { T.audio.play('unlock'); UI.toast(`새 건축가 해금: ${T.SHAPE[def.shape].name}`, 'big'); setTimeout(() => UI.rebuildPanel(), 0); return false; }
+      if (ok) T.fx.rowFlash(row);
       return ok;
-    });
+    }, '', '최대', true);
     row.appendChild(btn);
     if (def.auto) {
       const tg = T.h(`<button class="toggle"></button>`);
@@ -673,13 +702,30 @@
   UI.closeRadial = function () { const r = $('.radial'); if (r) { r.classList.remove('in'); r.classList.add('out'); setTimeout(() => r.remove(), 180); } };
 
   // ── settings, codes, intros ──────────────────────────────
+  // pixel slider for 0..1 values
+  function slider(id, label, val, onChange) {
+    const el = T.h(`<div class="pslider" id="${id}"><span class="ps-l">${label}</span><span class="ps-track"><i class="ps-fill"></i><i class="ps-knob"></i></span><b class="ps-v"></b></div>`);
+    const tr = el.querySelector('.ps-track');
+    const show = (v) => { el.querySelector('.ps-fill').style.width = v * 100 + '%'; el.querySelector('.ps-knob').style.left = v * 100 + '%'; el.querySelector('.ps-v').textContent = Math.round(v * 100); };
+    const at = (e) => { const r = tr.getBoundingClientRect(); const v = T.clamp((e.clientX - r.left) / r.width, 0, 1); const q = Math.round(v * 20) / 20; show(q); onChange(q); };
+    tr.addEventListener('pointerdown', (e) => { tr.setPointerCapture(e.pointerId); at(e); const mv = (ev) => at(ev); tr.addEventListener('pointermove', mv); tr.addEventListener('pointerup', () => { tr.removeEventListener('pointermove', mv); T.audio.play('tick'); }, { once: true }); });
+    show(val);
+    return el;
+  }
+  function toggle(label, on, onChange, tip) {
+    const el = T.h(`<button class="ptoggle ${on ? 'on' : ''}" ${tip ? `data-tip="${tip}"` : ''}><span class="pt-sw"><i></i></span><span>${label}</span></button>`);
+    el.addEventListener('click', () => { const v = !el.classList.contains('on'); el.classList.toggle('on', v); T.audio.play(v ? 'toggleOn' : 'toggleOff'); onChange(v); });
+    return el;
+  }
   UI.settings = function () {
     const s = S();
     const skips = [[1, 4, '재구성'], [2, 9, '다듬기'], [3, 12, '굴절']].filter(([, m]) => s.ms >= m);
-    modal(`<div class="m-head"><h2>설정</h2></div>
-      <label class="opt"><input type="checkbox" id="o-snd" ${s.settings.sound ? 'checked' : ''}> 소리</label>
-      ${skips.map(([n, , name]) => `<label class="opt"><input type="checkbox" data-skip="${n}" ${s.settings.skip[n] ? 'checked' : ''}> ${name} 연출 생략</label>`).join('')}
-      <label class="opt"><button class="mini" id="o-tut">튜토리얼 다시 보기</button></label>
+    modal(`<div class="m-head"><h2>설정</h2></div><div class="set-body px-scroll">
+      <div class="sub-head"><span>소리</span></div><div id="o-sound"></div>
+      <div class="sub-head"><span>조작</span></div><div id="o-ctrl"></div>
+      ${skips.length ? '<div class="sub-head"><span>연출</span></div><div id="o-skip"></div>' : ''}
+      <div class="sub-head"><span>안내서</span></div>
+      <div class="m-actions left"><button class="btn" id="o-guide">안내서 펼치기</button><button class="btn ghost" id="o-tut">첫걸음 다시 보기</button></div>
       <div class="sub-head"><span>비밀 코드</span></div>
       <div class="code-row"><input id="o-code" type="text" placeholder="코드를 입력하세요" maxlength="20" autocomplete="off"><button class="btn" id="o-code-go">입력</button></div>
       <div class="sub-head"><span>저장</span></div>
@@ -687,9 +733,18 @@
       <div class="m-actions left"><button class="btn" id="o-exp">내보내기</button><button class="btn" id="o-imp">가져오기</button><button class="btn danger" id="o-wipe">처음부터</button></div>
       <div class="sub-head"><span>기록</span></div>
       <p class="stats">쌓은 블록 ${fmt(s.stats.lifeBlocks)}<br>다듬은 조각 ${fmt(s.stats.carved)}<br>누적 조각 ${fmt(s.stats.lifeEarned)}<br>완공한 건축물 ${s.stats.built}<br>쓰다듬기 ${fmt(s.stats.pets)}회<br>플레이 ${T.fmtTime(s.stats.played)}</p>
-      <div class="m-actions left"><button class="btn ghost" id="o-cred">크레딧</button></div>`);
-    $('#o-snd').addEventListener('change', (e) => { s.settings.sound = e.target.checked; T.audio.setOn(e.target.checked); UI.updateDock(); });
-    T.$$('[data-skip]').forEach((x) => x.addEventListener('change', (e) => (s.settings.skip[x.dataset.skip] = e.target.checked)));
+      <div class="m-actions left"><button class="btn ghost" id="o-cred">크레딧</button></div></div>`, 'm-settings');
+    const snd = $('#o-sound');
+    snd.appendChild(toggle('소리 켜기', s.settings.sound, (v) => { s.settings.sound = v; T.audio.setOn(v); UI.updateDock(); }));
+    snd.appendChild(slider('o-vm', '전체', s.settings.vol.master, (v) => { s.settings.vol.master = v; T.audio.applyVolume(); }));
+    snd.appendChild(slider('o-vs', '효과음', s.settings.vol.sfx, (v) => { s.settings.vol.sfx = v; T.audio.applyVolume(); }));
+    snd.appendChild(slider('o-vu', '화면 소리', s.settings.vol.ui, (v) => { s.settings.vol.ui = v; T.audio.applyVolume(); }));
+    const ctrl = $('#o-ctrl');
+    ctrl.appendChild(toggle('클릭으로 블록 놓기', !s.settings.noPlace, (v) => { s.settings.noPlace = !v; }, '끄면 하늘을 클릭해도 블록이 놓이지 않습니다. 짓는 중인 건축물의 빈칸 채우기, 쓰다듬기, 들기는 그대로 됩니다.'));
+    if (UI.buyUnlocked()) ctrl.appendChild(T.h(`<p class="tab-note left">구매 수량은 화면 아래 「간격」 옆 버튼에서 고릅니다.</p>`));
+    const sk = $('#o-skip');
+    if (sk) for (const [n, , name] of skips) sk.appendChild(toggle(`${name} 연출 생략`, !!s.settings.skip[n], (v) => (s.settings.skip[n] = v)));
+    $('#o-guide').addEventListener('click', () => { closeModal(); UI.guideBook(); });
     $('#o-tut').addEventListener('click', () => { s.flags.tut = 0; closeModal(); });
     const go = () => UI.enterCode($('#o-code').value);
     $('#o-code-go').addEventListener('click', go);
@@ -709,6 +764,7 @@
     else if (code === 'PARADE') { T.ent.groupAction('parade', T.main.cursorX()); UI.toast('행진: 모두 한 줄로 걷습니다.'); }
     else if (code === 'HELLO') { T.ent.groupAction('hello', 0); UI.toast('모두가 손을 흔듭니다.'); }
     else if (code === 'CREDITS') { closeModal(); T.fx.credits(); }
+    else if (code === 'DEV' || code === '개발자' || code === 'DEVMODE') { s.flags.dev = !s.flags.dev; UI.tab = s.flags.dev ? 'dev' : 'arch'; UI.rebuildPanel(true); UI.toast(s.flags.dev ? '개발자 모드: 「개발」 탭이 열렸습니다.' : '개발자 모드를 껐습니다.', 'big'); }
     else { UI.toast('아무 일도 일어나지 않았습니다.'); T.audio.deny(); return; }
     closeModal();
   };
@@ -740,6 +796,14 @@
 
   // ── dock ─────────────────────────────────────────────────
   UI.updateGap = function () { const g = S().settings.gap; $('#gap-v').textContent = g === 0 ? '자유' : g === 1 ? '격자' : `${g}칸`; $('#gap').classList.toggle('free', g === 0); };
+  UI.updateBuyN = function () {
+    const el = $('#buyn'); if (!el) return;
+    el.style.display = UI.buyUnlocked() ? '' : 'none';
+    const n = S().settings.buyN ?? 1;
+    $('#buyn-v').textContent = n === 0 ? '최대' : `×${n}`;
+    el.classList.toggle('max', n === 0);
+  };
+  function stepBuyN(d) { const s = S(); const i = BUY_STEPS.indexOf(s.settings.buyN ?? 1); s.settings.buyN = BUY_STEPS[(i + d + BUY_STEPS.length) % BUY_STEPS.length]; T.audio.play('tick'); UI.updateBuyN(); updateBinds(); }
   UI.updateDock = function () {
     const c = S().flags.color;
     const set = (id, icon) => { const b = $(id); b.innerHTML = T.icon(icon); };
@@ -749,7 +813,7 @@
   UI.tick = function () {
     updateHud();
     updateSeals();
-    if (structureSig() !== sig) { UI.rebuildPanel(); UI.updateDock(); } else updateBinds();
+    if (structureSig() !== sig) { UI.rebuildPanel(); UI.updateDock(); UI.updateBuyN(); } else updateBinds();
     refreshCard();
     UI.tutorial();
   };
@@ -768,6 +832,11 @@
     gap.addEventListener('wheel', (e) => { e.preventDefault(); e.stopPropagation(); const s = S(); s.settings.gap = T.clamp(s.settings.gap + (e.deltaY > 0 ? -1 : 1), 0, 8); T.audio.tick(); UI.updateGap(); }, { passive: false });
     gap.addEventListener('click', () => { const s = S(); s.settings.gap = (s.settings.gap + 1) % 9; T.audio.tick(); UI.updateGap(); });
     UI.updateGap();
+    const bn = $('#buyn');
+    bn.addEventListener('wheel', (e) => { e.preventDefault(); e.stopPropagation(); stepBuyN(e.deltaY > 0 ? -1 : 1); }, { passive: false });
+    bn.addEventListener('click', () => stepBuyN(1));
+    bn.addEventListener('contextmenu', (e) => { e.preventDefault(); stepBuyN(-1); });
+    UI.updateBuyN();
     UI.updateDock();
   };
 })();

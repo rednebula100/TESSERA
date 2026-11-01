@@ -33,14 +33,16 @@
   </aside>
 
   <div id="dock">
-    <button class="dk" id="btn-zin" title="확대 (+)"></button>
-    <button class="dk" id="btn-zout" title="축소 (−)"></button>
-    <button class="dk" id="btn-home" title="구조물 전체 보기"></button>
-    <button class="dk" id="btn-obs" title="관측 모드 (H)"></button>
-    <button class="dk" id="btn-snd" title="소리"></button>
-    <button class="dk" id="btn-set" title="설정"></button>
-    <button class="dk" id="btn-panel" title="패널 접기"></button>
-    <button class="dk gap" id="gap" title="블록 간격: 위에서 휠을 굴리거나 클릭 ([ ] 키)"><small>간격</small><span id="gap-v">격자</span></button>
+    <button class="dk" id="btn-zin" data-tip="확대 (+)"></button>
+    <button class="dk" id="btn-zout" data-tip="축소 (−)"></button>
+    <button class="dk" id="btn-home" data-tip="전체 보기"></button>
+    <button class="dk" id="btn-obs" data-tip="관측 모드 (H)"></button>
+    <button class="dk" id="btn-snd" data-tip="소리 켜기/끄기"></button>
+    <button class="dk" id="btn-set" data-tip="설정"></button>
+    <button class="dk" id="btn-panel" data-tip="패널 접기"></button>
+    <button class="dk gap" id="gap" data-tip="<b>블록 간격</b><br>클릭하거나 위에서 휠을 굴립니다. 0은 자유 배치."><small>간격</small><span id="gap-v">격자</span></button>
+    <button class="dk gap buyn" id="buyn" data-tip="<b>구매 수량</b><br>업그레이드, 고용 버튼을 한 번 누를 때 몇 개 살지 고릅니다. 클릭, 오른쪽 클릭, 휠."><small>구매</small><span id="buyn-v">×1</span></button>
+    <div class="dk-layer" id="layerw" data-tip="<b>겹 이동</b><br>보고 있는 겹을 바꿉니다. Q / E 또는 PageUp / PageDown."><button class="dk lw-b" id="lw-up"></button><span class="lw-v" id="lw-v">1겹</span><button class="dk lw-b" id="lw-dn"></button></div>
   </div>
 
   <div id="tip"></div>
@@ -74,6 +76,7 @@
   <script src="js/entities.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/dev.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

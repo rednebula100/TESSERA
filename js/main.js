@@ -234,7 +234,7 @@
     const k = 1 - Math.pow(0.0001, dt);
     cam.z += (cam.tz - cam.z) * k; cam.x += (cam.tx - cam.x) * k; cam.y += (cam.ty - cam.y) * k;
     if (observing) cam.tz = Math.max(ZMIN, cam.tz * (1 - dt * 0.01));
-    let gdt = dt;
+    let gdt = dt * (M.timeScale || 1);
     if (hitstop > 0) { hitstop -= dt; gdt = 0; }
     clickCD = Math.max(0, clickCD - dt);
     denyFlash = Math.max(0, denyFlash - dt);
@@ -255,10 +255,11 @@
       tickAcc = 0;
       T.ui.tick();
     }
-    if (autoAcc >= 0.5) { T.G.automate(autoAcc); autoAcc = 0; }
+    if (autoAcc >= 0.5) { T.G.automate(autoAcc * (M.timeScale || 1)); autoAcc = 0; }
     if (homeAcc >= 5) { homeAcc = 0; T.vil.assignHomes(); }
     if (saveAcc >= 15) { saveAcc = 0; T.G.save(); }
     render(now);
+    T.fx.drawUI(dt);
     T.ui.frame();
     requestAnimationFrame(frame);
   }
@@ -331,6 +332,7 @@
     resize();
     const q = new URLSearchParams(location.search);
     const isDemo = q.has('demo');
+    if (q.has('dev')) setTimeout(() => { T.G.s.flags.dev = true; T.ui.rebuildPanel(true); }, 0);
     if (isDemo) M.noSave = true;
     const loaded = isDemo ? false : T.G.load();
     const s = T.G.s;

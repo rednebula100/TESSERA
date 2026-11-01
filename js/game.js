@@ -112,7 +112,9 @@
     return c;
   };
   G.capFull = () => G.s.archs.length >= G.archCap();
-  G.hireCost = (id) => { const sh = T.SHAPE[id]; const n = G.owned(id); return sh.cost * pw(sh.growth, n) * pw(1.1, n * n * 0.25); };
+  G.hireCostAt = (id, k = 0) => { const sh = T.SHAPE[id]; const n = G.owned(id) + k; return sh.cost * pw(sh.growth, n) * pw(1.1, n * n * 0.25); };
+  G.hireCost = (id) => G.hireCostAt(id, 0);
+  G.levelCostAt = (d, k = 0) => T.SHAPE[d.s].cost * 0.5 * pw(1.42, d.lvl + k) * pw(1.01, (d.lvl + k) * (d.lvl + k));
   G.levelCost = (d) => T.SHAPE[d.s].cost * 0.5 * pw(1.42, d.lvl) * pw(1.01, d.lvl * d.lvl);
   G.bpSlots = () => 1 + lv(G.s.vup, 'shelf');
   G.focus = () => 0.6 + 0.08 * lv(G.s.up, 'focus');
