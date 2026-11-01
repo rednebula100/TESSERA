@@ -113,15 +113,29 @@
       T.DEFS.filter((d) => T.st.visible(d)).length, T.DEFS.filter((d) => T.st.available(d)).length, T.st.activeBps().length, Object.keys(s.bps.done).length,
       Math.min(s.archs.length, 200) + '/' + s.workers.length + '/' + s.kids.length + '/' + s.pets.length, s.ms, s.era, s.flags.color, Object.keys(s.mup).length, T.G.layers()].join('|');
   }
+  // bookmark tabs: the top row is people and places, the bottom row is the shops (one per currency)
+  const TAB_ICON = { arch: 'tri', people: 'heart', bp: 'grid', ms: 'flag', town: 'house', dev: 'gear', work: 'shard', v: 'vertex', s: 'grain', p: 'prism', g: 'pigment', z: 'fold', l: 'lantern', auto: 'goods' };
+  const SHOP_STORE = { work: 0, v: 1, s: 2, p: 3, g: 4, z: 5, l: 6, auto: 7 };
+  function shopAffordable(store) {
+    const book = T.G.book(store), key = T.G.curKey(store), have = S()[key];
+    for (const def of T.G.UPS()[store]) { if (!T.G.upVisible(store, def)) continue; const l = book[def.id] || 0; if (l < T.G.maxOf(store, def) && def.cost(l) <= have) return true; }
+    return false;
+  }
   function buildTabs() {
     const s = S(), nav = $('#tabs');
     nav.innerHTML = '';
+    const rows = { main: T.h('<div class="tabrow main"></div>'), shop: T.h('<div class="tabrow shop"></div>') };
     for (const t of tabsDef()) {
+      const shop = t.id in SHOP_STORE;
       const isNew = t.layer && !s.flags.seenTabs[t.id];
-      const b = T.h(`<button class="tab ${t.layer ? 'tab-l' + t.layer : ''} ${UI.tab === t.id ? 'on' : ''}">${t.name}${isNew || t.dot ? '<i class="newdot"></i>' : ''}</button>`);
-      b.addEventListener('click', () => { if (UI.tab === t.id) return; UI.tab = t.id; s.flags.seenTabs[t.id] = 1; T.audio.click(); UI.rebuildPanel(true); });
-      nav.appendChild(b);
+      const iconK = TAB_ICON[t.id] || 'dot';
+      const b = T.h(`<button class="tab ${shop ? 'shoptab' : ''} ${t.layer ? 'tab-l' + t.layer : ''} ${UI.tab === t.id ? 'on' : ''}" data-tip="${t.name}"><span class="tab-ic">${shop ? ic(iconK) : T.icon(iconK)}</span><span class="tab-n">${t.name}</span>${isNew ? '<i class="newbadge">NEW</i>' : ''}${t.dot ? '<i class="newdot"></i>' : ''}<i class="availdot"></i></button>`);
+      b.addEventListener('click', () => { if (UI.tab === t.id) return; UI.tab = t.id; s.flags.seenTabs[t.id] = 1; T.audio.play('tab'); UI.rebuildPanel(true); });
+      if (shop) bind(b, () => b.classList.toggle('avail', UI.tab !== t.id && shopAffordable(SHOP_STORE[t.id])));
+      (shop ? rows.shop : rows.main).appendChild(b);
     }
+    nav.appendChild(rows.main);
+    if (rows.shop.childElementCount) nav.appendChild(rows.shop);
   }
   UI.rebuildPanel = function (animate) {
     binds = [];
@@ -137,6 +151,7 @@
     body.scrollTop = keep;
     sig = structureSig();
     updateBinds();
+    if (UI.updateBuyN) UI.updateBuyN();
   };
   const bind = (el, fn) => binds.push({ el, fn });
   const updateBinds = () => { for (const b of binds) b.fn(b.el); };
@@ -207,6 +222,25 @@
     return b;
   }
   UI.costBtn = costBtn;
+  // tooltips: upgrade rows (now → next, when affordable) and roster tiles
+  T.tipFns.up = function (el) {
+    const def = el._def, store = el._store; if (!def) return '';
+    const book = T.G.book(store), key = T.G.curKey(store), l = book[def.id] || 0, mx = T.G.maxOf(store, def);
+    let html = `<b>${def.name}</b> <small>${mx > 1 ? `Lv ${l}/${mx}` : l ? '보유' : ''}</small><br><span class="tt-now">${def.desc(l)}</span>`;
+    if (l < mx) {
+      if (mx > 1 && def.desc(l + 1) !== def.desc(l)) html += `<br><span class="tt-next">다음: ${def.desc(l + 1).replace(/\s*\(현재[^)]*\)/, '')}</span>`;
+      const c = def.cost(l), have = S()[key];
+      html += `<br><span class="tt-cost">${ic(CUR[key].ic)} ${fmt(c)}</span>`;
+      if (have < c && key === 'shards' && T.G.rate > 0) html += ` <small>지금 속도로 약 ${T.fmtTime((c - have) / T.G.rate)}</small>`;
+    } else html += '<br><small>최대 레벨</small>';
+    if (def.noCap && mx > 1) html += '<br><small>한계 업그레이드로 늘어나지 않습니다</small>';
+    return html;
+  };
+  T.tipFns.person = function (el) {
+    const d = el._d, kind = el._kind; if (!d) return '';
+    const role = kind === 'arch' ? `${T.SHAPE[d.s].name} 건축가  Lv ${d.lvl}` : kind === 'worker' ? '일꾼' : kind === 'kid' ? '아기' : (T.PET[kind] ? T.PET[kind].role : '');
+    return `<b>${d.name}</b><br><small>${role}</small>${kind === 'arch' ? `<br>블록 ${ic('shard')}${fmt(T.G.blockValue(d))}` : ''}`;
+  };
 
   function tabArch(body) {
     const s = S();
@@ -244,27 +278,61 @@
     head.appendChild(one);
     body.appendChild(head);
     if (s.ms >= 7) {
-      // bulk level-up with filters
-      const box = T.h(`<div class="bulk"><div class="bulk-f"></div><label class="bulk-to">목표 레벨 <input type="number" min="0" max="999" value="${UI.filter.upTo || ''}" placeholder="제한 없음"></label><button class="btn primary">일괄 레벨업</button></div>`);
+      // bulk level-up: shape filter + one-click targets
+      const box = T.h(`<div class="bulk"><div class="bulk-f"></div><div class="bulk-t"></div><div class="bulk-est"></div></div>`);
       const f = box.querySelector('.bulk-f');
       for (const sh of T.SHAPES) {
         if (!T.G.owned(sh.id)) continue;
         const on = UI.filter.shapes[sh.id] !== false;
         const c = T.h(`<button class="chip ${on ? 'on' : ''}">${sh.name}</button>`);
-        c.addEventListener('click', () => { UI.filter.shapes[sh.id] = !(UI.filter.shapes[sh.id] !== false); c.classList.toggle('on'); });
+        c.addEventListener('click', () => { UI.filter.shapes[sh.id] = !(UI.filter.shapes[sh.id] !== false); c.classList.toggle('on'); T.audio.play('tick'); updateBinds(); });
         f.appendChild(c);
       }
-      box.querySelector('input').addEventListener('change', (e) => (UI.filter.upTo = Math.max(0, parseInt(e.target.value) || 0)));
-      box.querySelector('.btn').addEventListener('click', () => {
-        const ok = (d) => UI.filter.shapes[d.s] !== false && (!UI.filter.upTo || d.lvl < UI.filter.upTo);
-        let n = 0; while (n < 2000 && levelCheapest(ok, true)) n++;
-        if (n) { T.audio.buy(); UI.toast(`레벨업 ${n}번`); } else T.audio.deny();
-        updateBinds();
-      });
+      const TARGETS = [['+1', (d) => d.lvl + 1], ['+5', (d) => d.lvl + 5], ['+10', (d) => d.lvl + 10], ['리본 5', () => 5], ['안전모 10', () => 10], ['왕관 25', () => 25], ['끝까지', () => 1e9]];
+      const tbox = box.querySelector('.bulk-t');
+      const est = box.querySelector('.bulk-est');
+      const ok = (d) => UI.filter.shapes[d.s] !== false;
+      // what a target would cost if bought cheapest-first with what we have
+      const simulate = (to) => {
+        const goal = new Map(s.archs.filter(ok).map((d) => [d, Math.max(d.lvl, Math.min(to(d), 9999))]));
+        const lv = new Map([...goal.keys()].map((d) => [d, d.lvl]));
+        let money = s.shards, n = 0, spent = 0;
+        for (let k = 0; k < 3000; k++) {
+          let best = null, bc = Infinity;
+          for (const [d, g] of goal) { if (lv.get(d) >= g) continue; const c = T.G.levelCostAt(d, lv.get(d) - d.lvl); if (c < bc) { bc = c; best = d; } }
+          if (!best || bc > money) break;
+          money -= bc; spent += bc; n++; lv.set(best, lv.get(best) + 1);
+        }
+        return { n, spent, lv };
+      };
+      for (const [name, to] of TARGETS) {
+        const c = T.h(`<button class="chip tgt">${name}</button>`);
+        c.addEventListener('mouseenter', () => { const r = simulate(to); est.innerHTML = r.n ? `${name}: 레벨업 <b>${r.n}</b>번, ${ic('shard')}<b>${fmt(r.spent)}</b>` : `${name}: 지금은 살 수 있는 레벨이 없어요`; });
+        c.addEventListener('click', () => {
+          const r = simulate(to);
+          if (!r.n) { T.audio.play('deny'); return; }
+          const gained = new Map();
+          for (const [d, l] of r.lv) if (l > d.lvl) { const c2 = (() => { let t = 0; for (let k = d.lvl; k < l; k++) t += T.G.levelCostAt(d, k - d.lvl); return t; })(); s.shards -= c2; gained.set(d, l - d.lvl); d.lvl = l; }
+          T.audio.play('buyMany');
+          UI.toast(`레벨업 ${r.n}번 (${gained.size}명)`);
+          // the roster tiles of everyone who levelled flash in turn, and they hop in the world
+          let i = 0;
+          for (const [d, n] of gained) {
+            const tile = body.querySelector(`.ro[data-uid="${s.archs.indexOf(d)}"]`);
+            T.fx.tileLevel(tile, n, i * 35);
+            const e = T.ent.archs.find((x) => x.d === d); if (e) setTimeout(() => { e.happyT = 1.2; T.ent.hop(e, 140); T.fx.sparkle(e.x, e.y + 22, true); }, i * 35);
+            i++;
+          }
+          T.fx.uiBurst(c, r.n);
+          updateBinds();
+        });
+        tbox.appendChild(c);
+      }
+      est.textContent = '목표를 누르면 고른 모양의 건축가를 가장 싼 순서로 올립니다.';
       body.appendChild(box);
     }
     const grid = T.h(`<div class="roster"></div>`);
-    for (const d of s.archs.slice(0, 200)) grid.appendChild(personTile(d, 'arch'));
+    s.archs.slice(0, 200).forEach((d, i) => { const t = personTile(d, 'arch'); t.dataset.uid = i; grid.appendChild(t); });
     body.appendChild(grid);
     const others = [...s.workers.map((d) => [d, 'worker']), ...s.kids.map((d) => [d, 'kid']), ...s.pets.map((d) => [d, d.kind])];
     if (others.length) {
@@ -288,7 +356,8 @@
   function personTile(d, kind) {
     const s = S();
     const sprite = T.PET[kind] ? T.PET[kind].sprite : d.s;
-    const it = T.h(`<button class="ro ${kind}" title="${d.name}"><span class="ro-top"><span class="ro-life"><i></i></span><span class="ro-lv"></span></span><span class="ro-out">밖</span></button>`);
+    const it = T.h(`<button class="ro ${kind}" data-tip-fn="person"><span class="ro-top"><span class="ro-life"><i></i></span><span class="ro-lv"></span></span><span class="ro-out">밖</span></button>`);
+    it._d = d; it._kind = kind;
     it.appendChild(T.sprites.portrait(sprite, s.flags.color, kind === 'kid' ? 1 : 2));
     it.addEventListener('click', () => { const e = T.ent.all().find((x) => x.d === d); if (e) { T.main.focus(e.x, 60); if (!e.inside) UI.openCard(e); else UI.toast(`${d.name}은(는) 지금 ${e.inside === 'sleep' ? '자고' : '구경하고'} 있어요.`); } });
     bind(it, () => {
@@ -304,13 +373,14 @@
   // ── upgrade shops ────────────────────────────────────────
   function upRow(def, store) {
     const s = S(), book = T.G.book(store), curKey = T.G.curKey(store);
-    const row = T.h(`<div class="row up"><div class="up-ic">${T.icon(def.icon)}</div><div class="row-main"><div class="row-name">${def.name} <small class="lvl"></small></div><div class="row-desc"></div></div></div>`);
+    const row = T.h(`<div class="row up" data-tip-fn="up"><div class="up-ic">${T.icon(def.icon)}</div><div class="row-main"><div class="row-name">${def.name} <small class="lvl"></small></div><div class="row-desc"></div></div></div>`);
     const btn = costBtn((k) => { const l = (book[def.id] || 0) + k; return l >= T.G.maxOf(store, def) ? null : def.cost(l); }, curKey, () => {
       const ok = T.G.buyUp(store, def);
       if (ok && def.shape) { T.audio.play('unlock'); UI.toast(`새 건축가 해금: ${T.SHAPE[def.shape].name}`, 'big'); setTimeout(() => UI.rebuildPanel(), 0); return false; }
       if (ok) T.fx.rowFlash(row);
       return ok;
     }, '', '최대', true);
+    row._def = def; row._store = store;
     row.appendChild(btn);
     if (def.auto) {
       const tg = T.h(`<button class="toggle"></button>`);
@@ -378,12 +448,16 @@
   function avgSplit() { const d = T.vil.done(); if (!d.length) return 0; let a = 0; for (const st of d) a += T.st.splitFrac(st); return a / d.length; }
 
   // ── milestones: expandable table ─────────────────────────
+  const RW_ICON = { mult: 'star4', up: 'up', feat: 'gear', unlock: 'lock', cap: 'house', bp: 'grid' };
+  const RW_NAME = { mult: '배율', up: '업그레이드', feat: '기능', unlock: '해금', cap: '자리', bp: '설계도' };
+  function rewardChips(m) { return m.rewards.map((r) => `<span class="rw rw-${r.k}"><i class="rw-ic">${T.icon(RW_ICON[r.k])}</i><small>${RW_NAME[r.k]}</small>${r.t}</span>`).join(''); }
+  UI.rewardChips = rewardChips;
   function tabMs(body) {
     const s = S();
     body.appendChild(T.h(`<p class="tab-intro">이정표는 어떤 리셋에도 지워지지 않습니다. 세우는 순간 이번 회차(조각, 작업장, 레벨${s.era >= 1 ? '' : ', 건축가와 건축물'})가 처음으로 돌아가고 영원한 보상을 얻습니다.</p>`));
     const m = T.MILESTONES[s.ms];
     if (m) {
-      const c = T.h(`<div class="ms-card"><div class="ms-no">${s.ms + 1}번째 이정표</div><div class="ms-name">${m.name}</div><div class="ms-need"><span>조건</span><b>${m.need}</b></div><div class="ms-bar"><i></i></div><div class="ms-reward"><span>보상</span><b>${m.reward}</b></div></div>`);
+      const c = T.h(`<div class="ms-card"><div class="ms-no">${s.ms + 1}번째 이정표</div><div class="ms-name">${m.name}</div><div class="ms-need"><span>조건</span><b>${m.need}</b></div><div class="ms-bar"><i></i></div><div class="ms-reward"><span>보상</span><div class="ms-rw">${rewardChips(m)}</div></div></div>`);
       const btn = T.h(`<button class="btn primary wide">이정표 세우기</button>`);
       btn.addEventListener('click', () => { if (T.G.msReady()) T.fx.milestone(); });
       c.appendChild(btn);
@@ -395,8 +469,9 @@
     T.MILESTONES.forEach((x, i) => {
       const state = i < s.ms ? 'done' : i === s.ms ? 'now' : 'later';
       const known = i <= s.ms + 1;
-      const row = T.h(`<div class="ms-row ${state} ${UI.msOpen[i] ? 'open' : ''}"><button class="ms-head"><b>${i + 1}</b><span>${known ? x.name : '???'}</span><em>${state === 'done' ? '완료' : state === 'now' ? '진행 중' : ''}</em></button><div class="ms-more"><p><small>조건</small>${known ? x.need : '아직 알 수 없습니다'}</p><p><small>보상</small>${known ? x.reward : '???'}</p></div></div>`);
-      row.querySelector('.ms-head').addEventListener('click', () => { UI.msOpen[i] = !UI.msOpen[i]; row.classList.toggle('open'); T.audio.click(); });
+      const open = state === 'done' && UI.msOpen[i];
+      const row = T.h(`<div class="ms-row ${state} ${open ? 'open' : ''}"><button class="ms-head" ${state === 'done' ? '' : 'disabled'}><b>${i + 1}</b><span>${known ? x.name : '???'}</span><em>${state === 'done' ? '완료' : state === 'now' ? '진행 중' : ''}</em>${state === 'done' ? `<i class="ms-caret">${T.icon('plus')}</i>` : ''}</button>${state === 'done' ? `<div class="ms-more"><p><small>조건</small>${x.need}</p><div class="ms-rw">${rewardChips(x)}</div></div>` : ''}</div>`);
+      if (state === 'done') row.querySelector('.ms-head').addEventListener('click', () => { UI.msOpen[i] = !UI.msOpen[i]; row.classList.toggle('open'); T.audio.play(row.classList.contains('open') ? 'expand' : 'collapse'); });
       table.appendChild(row);
     });
     body.appendChild(table);
@@ -571,23 +646,78 @@
     if (on) { h.innerHTML = zone ? `${name} 칠하기: 바닥을 드래그 <kbd>Esc</kbd> 끝내기` : `「${name}」 펼치는 중: 클릭해서 확정 <kbd>Esc</kbd> 취소`; h.classList.add('on'); } else h.classList.remove('on');
   };
 
-  // ── tutorial ─────────────────────────────────────────────
+  // ── tutorial (첫걸음) and guidebook (안내서) ─────────────
+  // highlight: four animated pixel corner brackets around the target, the rest dims slightly
+  let hlEl = null, hlTarget = null;
+  function highlight(sel) {
+    if (!hlEl) { hlEl = T.h('<div id="ghl"><i class="c1"></i><i class="c2"></i><i class="c3"></i><i class="c4"></i></div>'); document.body.appendChild(hlEl); }
+    hlTarget = sel || null;
+    hlEl.classList.toggle('on', !!sel);
+  }
+  function placeHighlight() {
+    if (!hlEl || !hlTarget) return;
+    const t = hlTarget === '#cv' ? null : document.querySelector(hlTarget);
+    if (!t || !t.offsetParent) { hlEl.classList.remove('on'); return; }
+    const r = t.getBoundingClientRect();
+    hlEl.classList.add('on');
+    hlEl.style.transform = `translate(${Math.round(r.left - 6)}px, ${Math.round(r.top - 6)}px)`;
+    hlEl.style.width = Math.round(r.width + 12) + 'px'; hlEl.style.height = Math.round(r.height + 12) + 'px';
+  }
+  UI.placeHighlight = placeHighlight;
   let tutEl = null;
+  function endTutorial() { const s = S(); s.flags.tut = T.TUTORIAL.length; if (tutEl) { tutEl.classList.remove('in'); const e = tutEl; setTimeout(() => e.remove(), 250); tutEl = null; } highlight(null); T.$$('.tut-hl').forEach((x) => x.classList.remove('tut-hl')); }
   UI.tutorial = function () {
     const s = S();
     const step = T.TUTORIAL[s.flags.tut];
-    if (!step || T.ui.modalOpen() || document.querySelector('#titlecard')) { if (!step && tutEl) { tutEl.remove(); tutEl = null; } return; }
+    if (!step) { if (tutEl) endTutorial(); return; }
+    if (T.ui.modalOpen() || document.querySelector('#titlecard')) return;
     if (!tutEl || tutEl.dataset.i !== String(s.flags.tut)) {
       if (tutEl) tutEl.remove();
-      tutEl = T.h(`<div class="tut" data-i="${s.flags.tut}"><div class="tut-n">${s.flags.tut + 1} / ${T.TUTORIAL.length}</div><p>${step.text}</p><div class="tut-a"><button class="mini" data-k="skip">건너뛰기</button>${step.wait ? '<span class="tut-w">해 보세요</span>' : '<button class="mini on" data-k="next">다음</button>'}</div></div>`);
-      tutEl.querySelector('[data-k=skip]').addEventListener('click', () => { s.flags.tut = T.TUTORIAL.length; tutEl.remove(); tutEl = null; });
-      const nx = tutEl.querySelector('[data-k=next]'); if (nx) nx.addEventListener('click', () => { s.flags.tut++; T.audio.click(); UI.tutorial(); });
+      tutEl = T.h(`<div class="tut guide" data-i="${s.flags.tut}"><div class="g-head"><span class="g-ic">${T.icon('book')}</span><b>첫걸음</b><span class="g-n">${s.flags.tut + 1} / ${T.TUTORIAL.length}</span></div><p>${step.text}</p><div class="g-dots">${T.TUTORIAL.map((_, i) => `<i class="${i === s.flags.tut ? 'on' : i < s.flags.tut ? 'done' : ''}"></i>`).join('')}</div><div class="tut-a"><button class="mini" data-k="skip">건너뛰기</button>${step.wait ? '<span class="tut-w">해 보세요</span>' : `<button class="mini on" data-k="next">${s.flags.tut === T.TUTORIAL.length - 1 ? '시작하기' : '다음'}</button>`}</div></div>`);
+      tutEl.querySelector('[data-k=skip]').addEventListener('click', () => { T.audio.play('close'); endTutorial(); });
+      const nx = tutEl.querySelector('[data-k=next]'); if (nx) nx.addEventListener('click', () => { s.flags.tut++; T.audio.play('page'); UI.tutorial(); });
       document.body.appendChild(tutEl);
       requestAnimationFrame(() => tutEl && tutEl.classList.add('in'));
-      T.$$('.tut-hl').forEach((x) => x.classList.remove('tut-hl'));
-      if (step.at && step.at !== '#cv') { const t = $(step.at); if (t) t.classList.add('tut-hl'); }
+      highlight(step.at && step.at !== '#cv' ? step.at : null);
     }
-    if (step.wait && step.wait(s)) { s.flags.tut++; T.$$('.tut-hl').forEach((x) => x.classList.remove('tut-hl')); UI.tutorial(); }
+    if (step.wait && step.wait(s)) { s.flags.tut++; T.audio.play('check'); UI.tutorial(); }
+  };
+  // guidebook chapters open by themselves when their feature appears
+  let guideEl = null, guide = null, gpage = 0, guideWait = 0;
+  function showGuidePage() {
+    const g = guide, p = g.pages[gpage];
+    if (p.tab && UI.tab !== p.tab && tabsDef().some((t) => t.id === p.tab)) { UI.tab = p.tab; S().flags.seenTabs[p.tab] = 1; UI.rebuildPanel(true); }
+    if (!guideEl) { guideEl = T.h('<div class="tut guide gbook"></div>'); document.body.appendChild(guideEl); requestAnimationFrame(() => guideEl && guideEl.classList.add('in')); }
+    guideEl.innerHTML = `<div class="g-head"><span class="g-ic">${T.icon(g.icon)}</span><b>${g.title}</b><span class="g-n">안내서</span></div><p>${p.text}</p><div class="g-dots">${g.pages.map((_, i) => `<i class="${i === gpage ? 'on' : i < gpage ? 'done' : ''}"></i>`).join('')}</div><div class="tut-a"><button class="mini" data-k="later">${g.pages.length > 1 ? '닫기' : ''}</button><button class="mini on" data-k="next">${gpage < g.pages.length - 1 ? '다음' : '알겠어요'}</button></div>`;
+    const later = guideEl.querySelector('[data-k=later]'); if (!later.textContent) later.style.visibility = 'hidden';
+    later.addEventListener('click', closeGuide);
+    guideEl.querySelector('[data-k=next]').addEventListener('click', () => { if (gpage < g.pages.length - 1) { gpage++; T.audio.play('page'); showGuidePage(); } else { T.audio.play('check'); closeGuide(); } });
+    setTimeout(() => highlight(p.at && p.at !== '#cv' ? p.at : null), 60);
+  }
+  function closeGuide() { if (guideEl) { guideEl.classList.remove('in'); const e = guideEl; setTimeout(() => e.remove(), 250); guideEl = null; } guide = null; highlight(null); }
+  UI.openGuide = function (id) {
+    const g = T.GUIDES.find((x) => x.id === id); if (!g) return;
+    closeGuide(); guide = g; gpage = 0;
+    const s = S(); if (!s.flags.guides) s.flags.guides = {}; s.flags.guides[id] = 1;
+    T.audio.play('guide');
+    showGuidePage();
+  };
+  UI.guideTick = function () {
+    const s = S();
+    if (guide || tutEl || s.flags.tut < T.TUTORIAL.length || UI.modalOpen() || T.fx.busy || document.querySelector('#titlecard')) { guideWait = 0; return; }
+    const seen = s.flags.guides || {};
+    const g = T.GUIDES.find((x) => !seen[x.id] && x.when(s));
+    if (!g) { guideWait = 0; return; }
+    if ((guideWait += 0.25) < 1.5) return; // let the moment settle first
+    guideWait = 0;
+    UI.openGuide(g.id);
+  };
+  UI.guideBook = function () {
+    const s = S(), seen = s.flags.guides || {};
+    modal(`<div class="m-head"><span class="m-kicker">안내서</span><h2>${T.icon('book')} 다시 보기</h2></div><div class="gb-list px-scroll">
+      <button class="gb-item" data-g="__tut"><span class="g-ic">${T.icon('book')}</span><b>첫걸음</b><small>${T.TUTORIAL.length}쪽</small></button>
+      ${T.GUIDES.map((g) => `<button class="gb-item ${seen[g.id] ? '' : 'locked'}" data-g="${g.id}" ${seen[g.id] ? '' : 'disabled'}><span class="g-ic">${T.icon(seen[g.id] ? g.icon : 'lock')}</span><b>${seen[g.id] ? g.title : '???'}</b><small>${seen[g.id] ? g.pages.length + '쪽' : '아직 만나지 못한 장'}</small></button>`).join('')}</div>`, 'm-guide');
+    T.$$('.gb-item').forEach((b) => b.addEventListener('click', () => { closeModal(); if (b.dataset.g === '__tut') { s.flags.tut = 0; UI.tutorial(); } else UI.openGuide(b.dataset.g); }));
   };
 
   // ── cards: residents and structures ──────────────────────
@@ -816,8 +946,9 @@
     if (structureSig() !== sig) { UI.rebuildPanel(); UI.updateDock(); UI.updateBuyN(); } else updateBinds();
     refreshCard();
     UI.tutorial();
+    UI.guideTick();
   };
-  UI.frame = positionCard;
+  UI.frame = function () { positionCard(); placeHighlight(); };
   UI.init = function () {
     buildHud();
     UI.rebuildPanel(true);
