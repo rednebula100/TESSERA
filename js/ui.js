@@ -350,7 +350,7 @@
     let best = null, bc = Infinity;
     for (const d of s.archs) { if (!filter(d)) continue; const c = T.G.levelCost(d); if (c < bc) { bc = c; best = d; } }
     if (!best || !T.G.levelUp(best)) { if (!quiet) T.audio.deny(); return false; }
-    if (!quiet) T.audio.buy();
+    if (!quiet) T.audio.play('levelup');
     const e = T.ent.archs.find((x) => x.d === best); if (e) { e.happyT = 1; T.ent.hop(e); }
     updateBinds();
     return true;
@@ -743,7 +743,7 @@
         const b = T.h(`<button class="buy wide"><span class="buy-l">레벨업</span><span class="buy-c">${ic('shard')}<b></b></span></button>`);
         holdable(b, (quiet) => {
           if (!T.G.levelUp(d)) { if (!quiet) T.audio.deny(); return false; }
-          if (!quiet) T.audio.buy();
+          if (!quiet) T.audio.play('levelup');
           e.happyT = 1.2; T.ent.hop(e, 120);
           if (d.lvl % 5 === 0) { T.fx.hearts(e.x, e.y + 20); e.bubble = { text: d.lvl === 5 ? '리본!' : d.lvl === 10 ? '안전모!' : d.lvl === 25 ? '왕관!' : '레벨업!', t: 1.4 }; }
           refreshCard(); return true;

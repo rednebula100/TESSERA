@@ -572,8 +572,8 @@
     });
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('in'));
-    T.audio.reveal();
-    el.addEventListener('click', () => { el.classList.remove('in'); setTimeout(() => el.remove(), 700); });
+    T.audio.play('credits');
+    el.addEventListener('click', () => { el.classList.remove('in'); T.audio.play('close'); setTimeout(() => el.remove(), 700); });
   };
 
   FX._pixelStage = (el) => pixelStage(el);

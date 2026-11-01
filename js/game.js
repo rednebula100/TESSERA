@@ -241,6 +241,7 @@
     if (G.s.shards < c || !G.shapeUnlocked(id) || G.capFull()) return false;
     G.s.shards -= c;
     addArch(id, 0, false);
+    T.audio.play('hire');
     G.computeMult();
     if (T.vil) T.vil.assignHomes();
     return true;

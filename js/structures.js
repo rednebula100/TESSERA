@@ -348,6 +348,7 @@
       ST.cancel();
       T.audio.unlock();
       T.ui.toast(`「${T.DEF[id].name}」 설계도를 펼쳤습니다.`);
+      T.audio.play('blueprint');
       T.G.redrawRange(x - B, x + T.shapeOf(id, seed).w * B + B);
     };
     if (chk.warn) {

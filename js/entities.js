@@ -131,6 +131,7 @@
       S().stats.lifeBlocks++;
       if (z === 0) T.fx.landed(tx, ty, v, lucky, color);
       T.audio.note(ty, T.SHAPE[d.s].index);
+      if (Math.random() < 0.25) T.audio.play('land', { x: tx });
     };
     if (e.light || flights.length > 400 || T.cam.z < 0.12) {
       if (e.light && T.cam.z > 0.2 && z === 0) T.fx.beam(from[0], from[1], tx, ty, color);
@@ -164,7 +165,7 @@
   }
   function hold(e) { e.held = true; e.walkTo = null; e.surpriseT = 0.6; T.audio.pop(); if (Math.random() < 0.5) e.bubble = { text: ['으앗', '?!', '높다…', '내려줘'][Math.floor(Math.random() * 4)], t: 1.2 }; }
   function drag(e, wx, wy) { const ny = Math.max(0, wy - 10); e.vx = (wx - e.x) * 30; e.vy = (ny - e.y) * 30; e.x = wx; e.y = ny; }
-  function release(e) { e.held = false; e.vx = T.clamp(e.vx, -500, 500) * 0.5; e.vy = T.clamp(e.vy, -400, 600) * 0.5; e.joinOnLand = true; }
+  function release(e) { T.audio.play('drop'); e.held = false; e.vx = T.clamp(e.vx, -500, 500) * 0.5; e.vy = T.clamp(e.vy, -400, 600) * 0.5; e.joinOnLand = true; }
   function hop(e, v = 130) { if (e.y === 0 && e.vy === 0 && !e.inside) e.vy = v; }
   function notifyPlayerBlock(x, y) {
     for (const e of archs.concat(workers, kids)) {
@@ -414,7 +415,7 @@
       }
       S().stats.carved += total;
       T.G.earn(T.G.bestValue() * 0.04 * total * (1 + (S().sup.sharp || 0)));
-      if (Math.random() < 0.3) T.audio.chip();
+      if (Math.random() < 0.3) T.audio.play('chip', { x: e.x });
       return total;
     }, '다듬을 게 없네');
   }
@@ -434,6 +435,7 @@
       }
       S().stats.paintBlocks += total;
       T.G.earn(T.G.bestValue() * 0.05 * total * (2 + (S().gup.dense || 0)));
+      if (Math.random() < 0.35) T.audio.play('paint', { x: e.x });
       return total;
     }, '칠할 게 없네');
   }
@@ -442,7 +444,7 @@
     refiner(e, dt, (en) => { const c = T.st.condemned().filter((st) => (st.z || 0) === zOf(en)); if (!c.length) T.st.clearedCheck(); return c.sort((a, b) => Math.abs(a.x - en.x) - Math.abs(b.x - en.x))[0] || null; }, cd, (en, st) => {
       if (!S().structs.includes(st)) return -1;
       const n = cd < 0.2 ? 999 : 1;
-      T.audio.thunk();
+      T.audio.play('knock', { x: e.x });
       T.st.knock(st, n);
       if (!S().structs.includes(st)) { T.st.clearedCheck(); en.happyT = 1.5; return -1; }
       return 1;

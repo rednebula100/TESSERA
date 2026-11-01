@@ -55,13 +55,14 @@
     if (d !== lastDay) { lastDay = d; s.day = d; s.eclipseAt = Math.random() < 0.05 ? 0.25 + Math.random() * 0.2 : -1; }
     if (s.eclipseAt > 0 && V.dayFrac() >= s.eclipseAt && !s.event) { s.eclipseAt = -1; startEvent('eclipse', 40); }
     if (n && !lastNightFlag && !s.event && Math.random() < 0.07) startEvent('aurora', DAY * 0.25);
+    if (n !== lastNightFlag && lastDay) T.audio.play(n ? 'night' : 'morning');
     lastNightFlag = n;
   };
   function startEvent(type, dur) {
     S().event = { type, t: dur, dur };
     T.G.computeMult();
     T.fx.banner(type === 'aurora' ? '오로라' : '일식', type === 'aurora' ? '하늘이 춤춥니다. 잠시 동안 조각 ×3, 쿨타임 감소' : '해가 숨었습니다. 잠시 동안 조각 ×3, 쿨타임 감소');
-    T.audio.reveal();
+    T.audio.play('sky');
   }
   V.startEvent = startEvent;
 
@@ -236,7 +237,7 @@
           const p = fam[Math.floor(Math.random() * fam.length)];
           const kid = { s: p.d.s, home: h.uid, age: 0, z: h.z || 0, life: V.maxLife(), name: '아기 ' + ['콩', '꼬마', '아가', '몽글', '솜', '방글'][Math.floor(Math.random() * 6)] };
           s.kids.push(kid);
-          T.ent.spawnKid(kid, h);
+          T.ent.spawnKid(kid, h); T.audio.play('birth');
           T.ui.toast(`${T.DEF[h.id].name}에 아기가 태어났습니다!`);
           T.audio.unlock();
         }
