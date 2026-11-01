@@ -264,20 +264,36 @@
   // ── zones ────────────────────────────────────────────────
   V.paintZone = function (x0, x1, type) {
     const s = S();
+    const z = T.view();
     if (x1 < x0) [x0, x1] = [x1, x0];
     x0 = Math.round(x0 / B) * B; x1 = Math.round(x1 / B) * B;
     if (x1 - x0 < B * 6) return;
     const out = [];
     for (const zn of s.zones) {
-      if ((zn.z || 0) !== 0 || zn.x1 <= x0 || zn.x0 >= x1) { out.push(zn); continue; }
+      if ((zn.z || 0) !== z || zn.x1 <= x0 || zn.x0 >= x1) { out.push(zn); continue; }
       if (zn.x0 < x0) out.push({ ...zn, x1: x0 });
       if (zn.x1 > x1) out.push({ ...zn, x0: x1 });
     }
-    out.push({ x0, x1, type, auto: 0, z: 0 });
+    out.push({ x0, x1, type, auto: 0, z });
     out.sort((a, b) => a.x0 - b.x0);
     s.zones = out;
     T.fx.zoneBorn({ x0, x1, type });
-    T.audio.unlock();
+    T.audio.play('unlock');
+    // what does not belong in the new zone is taken down by 쿵쿵 and the builders put up something that does
+    const zt = T.ZONES[type], ok = new Set([...(zt.cats || []), ...(zt.fill || [])]);
+    let n = 0, kept = 0;
+    for (const st of s.structs) {
+      if ((st.z || 0) !== z || !T.st.done(st) || st.condemned) continue;
+      const [a, b] = T.st.bbox(st);
+      if (b <= x0 || a >= x1) continue;
+      const d = T.DEF[st.id];
+      if (ok.has(d.cat) || d.cat === 'special') continue;
+      if (st.src !== 'auto') { kept++; continue; }
+      st.condemned = 'zone'; n++;
+    }
+    if (n) T.ui.toast(`${zt.name} 구역에 맞지 않는 건축물 ${n}개를 쿵쿵 주민이 치우고, 맞는 건축물을 새로 짓습니다.${kept ? ` 설계도로 지은 ${kept}개는 그대로 둡니다.` : ''}`, 'big');
+    else if (kept) T.ui.toast(`설계도로 지은 건축물 ${kept}개는 구역이 바뀌어도 그대로 둡니다.`);
+    if (n && !T.ent.demos.length) T.ui.toast('쿵쿵 주민이 없으면 철거가 시작되지 않아요. 등불 회관에서 데려올 수 있습니다.');
   };
   V.renderZones = function (ctx, z = 0) {
     const s = S();
@@ -292,9 +308,9 @@
       if (b < 0 || a > T.cam.W) continue;
       ctx.fillStyle = color ? d.color : d.gray;
       ctx.globalAlpha = 0.55; ctx.fillRect(a, gy + Math.max(2, 4 * zz), b - a, Math.max(1, 1.5 * zz)); ctx.globalAlpha = 1;
-      if (zz > 0.6 && z === 0) { ctx.font = '9px Galmuri9, monospace'; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillStyle = color ? T.shade(d.color, -0.35) : '#555'; ctx.fillText(d.name, a + 3, gy + 8 * zz); }
+      if (zz > 0.6 && z === T.view()) { ctx.font = '9px Galmuri9, monospace'; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillStyle = color ? T.shade(d.color, -0.35) : '#555'; ctx.fillText(d.name, a + 3, gy + 8 * zz); }
     }
-    if (V.zoneDrag && z === 0) {
+    if (V.zoneDrag && z === T.view()) {
       const [a] = T.w2s(Math.min(V.zoneDrag[0], V.zoneDrag[1]), 0), [b] = T.w2s(Math.max(V.zoneDrag[0], V.zoneDrag[1]), 0);
       ctx.fillStyle = (T.ZONES[V.zoneTool] || T.ZONES.park).color;
       ctx.globalAlpha = 0.25; ctx.fillRect(a, gy - 60, b - a, 60); ctx.globalAlpha = 1; ctx.fillRect(a, gy, b - a, 3);

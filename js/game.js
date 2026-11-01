@@ -309,8 +309,9 @@
 
   // ── world drawing ────────────────────────────────────────
   function drawPlayerBlock(p) {
-    const back = T.st.at(p[0], p[1], 0);
-    T.world.drawBlock(p[0], p[1], G.playerColor(), false, back ? 'back' : 'front', 0);
+    const z = p[2] || 0;
+    const back = T.st.at(p[0], p[1], z);
+    T.world.drawBlock(p[0], p[1], G.playerColor(), false, back ? 'back' : 'front', z);
   }
   G.drawPlayerBlock = drawPlayerBlock;
   G.redrawRange = function (x0, x1) {

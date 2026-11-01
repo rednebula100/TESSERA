@@ -832,6 +832,7 @@ body:not(.color) .acc-split { background: #8d8d8a; } body:not(.color) .acc-paint
 
 /* ── toasts move to the bottom centre, above the dock ── */
 #toasts { top: auto !important; bottom: 74px; flex-direction: column-reverse; }
+#toasts .toast:nth-last-child(n+4) { display: none; }
 .toast { transform: translateY(6px); }
 .toast.out { transform: translateY(6px); }
 

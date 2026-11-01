@@ -329,7 +329,7 @@
   };
   ST.check = function (id, seed, x, y) {
     const sh = T.shapeOf(id, seed);
-    const ov = ST.overlaps(x - B, x + sh.w * B + B, y - sh.sink * B, y + sh.h * B, 0);
+    const ov = ST.overlaps(x - B, x + sh.w * B + B, y - sh.sink * B, y + sh.h * B, T.view());
     const s = S();
     if (!ov.length) return { ok: true, ov };
     if (s.era < 1) return { ok: false, ov, why: '다른 건축물과 겹칩니다.' };
@@ -342,7 +342,7 @@
     const chk = ST.check(id, seed, x, y);
     if (!chk.ok) { T.ui.toast(chk.why); T.audio.deny(); return; }
     const go = () => {
-      const st = ST.create(id, seed, x, 'bp', { y });
+      const st = ST.create(id, seed, x, 'bp', { y, z: T.view() });
       rt(st).t0 = performance.now();
       if (chk.demolish) { st.clearing = true; for (const o of chk.ov) o.condemned = st.uid; T.ui.toast('철거 주민들이 먼저 자리를 비웁니다.'); }
       ST.cancel();
@@ -495,7 +495,7 @@
         // framed, waiting for 톡톡 to carve it to the blueprint resolution
         const k = ST.refineFrac(st);
         label(ctx, st.x + (sh.w * B) / 2, top, `${def.name}  다듬는 중`, k, st.src === 'bp', 1, `${Math.floor(k * 100)}%  ${T.RES_NAME[ST.needRes(st)]}까지`, false, true);
-      } else if (st.src === 'bp' && zoom > 0.55) plaque(ctx, st.x + (sh.w * B) / 2, (st.y || 0), def.name);
+      } else if (st.src === 'bp' && zoom > 0.55 && z === T.view()) plaque(ctx, st.x + (sh.w * B) / 2, (st.y || 0), def.name);
       if (st.condemned && zoom > 0.3) {
         ctx.save(); ctx.globalAlpha = 0.35 + Math.sin(now / 160) * 0.15;
         ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
@@ -503,7 +503,7 @@
         ctx.strokeRect(px, py, px2 - px, py2 - py); ctx.restore();
       }
     }
-    if (z !== 0) return;
+    if (z !== T.view()) return;
     // happiness range of the selected structure
     if (ST.selected && s.structs.includes(ST.selected)) {
       const st = ST.selected, d = ST.def(st), sh = ST.shape(st);

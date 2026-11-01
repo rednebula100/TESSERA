@@ -56,7 +56,7 @@
       const L = T.G.L[n];
       if (!L.seen(s)) continue;
       want.add('L' + n);
-      if (!s.flags.seen[n]) { s.flags.seen[n] = 1; UI.toast(SEEN_LINE[n], 'big'); T.audio.unlock(); }
+      if (!s.flags.seen[n]) { s.flags.seen[n] = 1; if (!(T.main && T.main.noSave)) { UI.toast(`${SEEN_LINE[n]} <b>${L.name}</b> 해금`, 'big'); T.audio.play('unlock'); } }
       const el = seal('L' + n, L.name, L.icon, 'seal-' + n, () => confirmReset(n));
       const prog = L.prog(s);
       el.querySelector('.seal-bar i').style.width = (prog <= 0 ? 0 : T.clamp(Math.log10(1 + prog) / Math.log10(1 + L.need), 0, 1) * 100).toFixed(1) + '%';
@@ -154,6 +154,7 @@
     sig = structureSig();
     updateBinds();
     if (UI.updateBuyN) UI.updateBuyN();
+    if (UI.updateLayerW && T.main) UI.updateLayerW();
   };
   const bind = (el, fn) => binds.push({ el, fn });
   const updateBinds = () => { for (const b of binds) b.fn(b.el); };
@@ -798,7 +799,7 @@
     if (!T.ent.all().includes(e)) { UI.closeCard(); return; }
     if (e.kind === 'arch') { set('#ac-lv', d.lvl); set('#ac-v', `${ic('shard')}${fmt(T.G.blockValue(d))}`); }
     set('#ac-h', (e.happy || 0).toFixed(2));
-    const doing = e.inside === 'sleep' ? '자는 중' : e.inside ? '구경 중' : e.napping ? '밖에서 자는 중' : e.mournT > 0 ? '슬퍼하는 중' : e.emote ? '부탁 들어주는 중' : e.proj ? `${T.DEF[e.proj.id].name} 짓는 중` : e.job ? `${T.DEF[e.job.id].name}에서 일하는 중` : '쉬는 중';
+    const doing = e.inside === 'sleep' ? '자는 중' : e.inside ? '구경 중' : e.napping ? '밖에서 자는 중' : e.nightShift && T.vil.night() > 0.6 ? '밤샘 중' : e.mournT > 0 ? '슬퍼하는 중' : e.emote ? '부탁 들어주는 중' : e.proj ? `${T.DEF[e.proj.id].name} 짓는 중` : e.job ? `${T.DEF[e.job.id].name}에서 일하는 중` : '쉬는 중';
     set('#ac-m', doing);
     const life = el.querySelector('.ac-life');
     if (life) { life.style.display = s.era >= 1 && d.life !== undefined ? '' : 'none'; if (d.life !== undefined) life.querySelector('em').style.width = T.clamp(d.life / T.vil.maxLife(), 0, 1) * 100 + '%'; }
@@ -935,6 +936,13 @@
     $('#buyn-v').textContent = n === 0 ? '최대' : `×${n}`;
     el.classList.toggle('max', n === 0);
   };
+  // layer widget: ▲ goes deeper (back), ▼ comes forward
+  UI.updateLayerW = function () {
+    const w = $('#layerw'); if (!w) return;
+    const L = T.G.layers();
+    w.classList.toggle('on', L > 1);
+    $('#lw-v').textContent = `${T.main.focusT + 1}/${L}겹`;
+  };
   function stepBuyN(d) { const s = S(); const i = BUY_STEPS.indexOf(s.settings.buyN ?? 1); s.settings.buyN = BUY_STEPS[(i + d + BUY_STEPS.length) % BUY_STEPS.length]; T.audio.play('tick'); UI.updateBuyN(); updateBinds(); }
   UI.updateDock = function () {
     const c = S().flags.color;
@@ -970,6 +978,10 @@
     bn.addEventListener('click', () => stepBuyN(1));
     bn.addEventListener('contextmenu', (e) => { e.preventDefault(); stepBuyN(-1); });
     UI.updateBuyN();
+    $('#lw-up').innerHTML = T.icon('arrowU'); $('#lw-dn').innerHTML = T.icon('arrowD');
+    $('#lw-up').addEventListener('click', () => T.main.layerBy(1));
+    $('#lw-dn').addEventListener('click', () => T.main.layerBy(-1));
+    UI.updateLayerW();
     UI.updateDock();
   };
 })();

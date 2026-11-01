@@ -129,12 +129,12 @@
       const v = T.G.blockValue(d) * (lucky ? 25 : 1);
       T.G.earn(v);
       S().stats.lifeBlocks++;
-      if (z === 0) T.fx.landed(tx, ty, v, lucky, color);
+      if (z === T.view()) T.fx.landed(tx, ty, v, lucky, color);
       T.audio.note(ty, T.SHAPE[d.s].index);
       if (Math.random() < 0.25) T.audio.play('land', { x: tx });
     };
     if (e.light || flights.length > 400 || T.cam.z < 0.12) {
-      if (e.light && T.cam.z > 0.2 && z === 0) T.fx.beam(from[0], from[1], tx, ty, color);
+      if (e.light && T.cam.z > 0.2 && z === T.view()) T.fx.beam(from[0], from[1], tx, ty, color);
       onLand(); return;
     }
     const dist = Math.hypot(tx - from[0], ty - from[1]);
@@ -150,7 +150,7 @@
   function pick(wx, wy) {
     let best = null, bd = 1e9;
     for (const e of all()) {
-      if (e.inside || zOf(e) !== 0) continue;
+      if (e.inside || zOf(e) !== T.view()) continue;
       const sc = e.kind === 'kid' ? 0.6 : 1;
       const dx = wx - e.x, dy = wy - (e.y + 9 * sc);
       if (Math.abs(dx) < 11 * sc + 2 && Math.abs(dy) < 12 * sc + 2) { const dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = e; } }
@@ -178,7 +178,7 @@
   }
   // radial menu. At night it even wakes the sleepers, who come running out
   function groupAction(type, wx) {
-    const pool = archs.concat(workers, kids).filter((e) => zOf(e) === 0 && !e.held && Math.abs(e.x - wx) < 700);
+    const pool = archs.concat(workers, kids).filter((e) => zOf(e) === T.view() && !e.held && Math.abs(e.x - wx) < 700);
     if (type === 'hello') { for (const e of all()) if (!e.inside) { e.emote = 'wave'; e.emoteT = 2.5; } return pool.length; }
     let woke = 0;
     for (const e of pool) {
@@ -187,7 +187,12 @@
       e.emote = type;
       e.emoteT = { gather: 12, dance: 6, cheer: 3, rest: 9, scatter: 5, follow: 14, parade: 16 }[type] || 4;
       e.emoteX = wx + (type === 'gather' ? (Math.random() - 0.5) * 70 : 0);
-      if (type === 'scatter') e.emoteX = e.x + Math.sign(e.x - wx || 1) * (150 + Math.random() * 150);
+      if (type === 'scatter') {
+        e.emoteX = e.x + Math.sign(e.x - wx || 1) * (150 + Math.random() * 150);
+        // 「모여」 then 「흩어져」: they stay up and keep working through the night
+        if (S().era >= 1 && performance.now() - (e.lastGather || -1e9) < 90000) { e.nightShift = true; e.bubble = { text: ['밤샘이다!', '오늘은 늦게까지', '불 켜고 일하자'][Math.floor(Math.random() * 3)], t: 1.6 }; }
+      }
+      if (type === 'gather') e.lastGather = performance.now();
       if (type === 'cheer') { e.happyT = 3; hop(e, 200); }
       if (type === 'parade') e.emoteX = wx + 1200;
       if (!e.bubble && Math.random() < 0.3) e.bubble = { text: { gather: '모여라!', dance: '♪', cheer: '만세!', rest: '휴…', scatter: '와아', follow: '따라갈게', parade: '하나 둘' }[type], t: 1.3 };
@@ -230,7 +235,7 @@
     e.x += Math.sign(dx) * step;
     if (S().era >= 1 && Math.random() < dt * 3) T.world.wear(e.x, zOf(e), 0.15);
     e.walking = true;
-    if (Math.random() < dt * 0.6 && T.cam.z > 0.6 && zOf(e) === 0) T.fx.dust(e.x - e.dir * 6, 0, 1);
+    if (Math.random() < dt * 0.6 && T.cam.z > 0.6 && zOf(e) === T.view()) T.fx.dust(e.x - e.dir * 6, 0, 1);
     return false;
   }
   const doorX = (st) => st.x + (T.st.shape(st).w * B) / 2;
@@ -251,10 +256,11 @@
     }
     // awake: life drains; awake or sleeping outside at night drains faster
     const outsideNight = n > 0.6;
-    e.d.life -= dt * (outsideNight ? 1.6 : 1);
+    if (n < 0.25) e.nightShift = false;
+    e.d.life -= dt * (outsideNight ? (e.nightShift ? 1.3 : 1.6) : 1);
     if (e.d.life <= 0) { T.vil.die(e); return true; }
     if (e.d.life < T.vil.maxLife() * 0.15 && Math.random() < dt * 0.1 && !e.bubble) e.bubble = { text: '졸려…', t: 1.4 };
-    if (outsideNight && !e.emote) {
+    if (outsideNight && !e.emote && !e.nightShift) {
       if (home) {
         e.napping = false;
         if (walkToward(e, doorX(home), dt, 1.2)) { e.inside = 'sleep'; e.insideT = 1 + Math.random() * 4; if (e.proj) setProj(e, null); }
@@ -289,7 +295,7 @@
     if (townLife(e, dt)) return;
     if (e.emote) { doEmote(e, dt); return; }
     const petted = e.petT > 0;
-    if ((petted || e.light) && Math.random() < dt * (e.light ? 4 : 1.2) && zOf(e) === 0) T.fx.sparkle(e.x + (Math.random() - 0.5) * 14, e.y + 6 + Math.random() * 16, e.light);
+    if ((petted || e.light) && Math.random() < dt * (e.light ? 4 : 1.2) && zOf(e) === T.view()) T.fx.sparkle(e.x + (Math.random() - 0.5) * 14, e.y + 6 + Math.random() * 16, e.light);
     e.emoteCD -= dt;
     if (e.emoteCD < 0) { e.emoteCD = 18 + Math.random() * 40; if (!e.bubble && T.cam.z > 0.8) e.bubble = { text: ['♪', '…', '흠흠', '♬', '영차'][Math.floor(Math.random() * 5)], t: 1.5 }; }
     if (e.mournT > 0 && !(e.proj && e.proj.src === 'grave')) return;
@@ -354,7 +360,7 @@
     if (e.spot === undefined) e.spot = Math.random();
     if (!walkToward(e, e.job.x + B + e.spot * (sh.w - 2) * B, dt)) { lookAround(e); return; }
     e.t -= dt; e.look = [e.dir, 0];
-    if (e.t <= 0) { e.t = 3; const g = T.vil.goodsRate(); T.G.earnGoods(g); hop(e, 90); if (T.cam.z > 0.7 && zOf(e) === 0) T.fx.floatText(e.x, e.y + 26, '+' + T.fmt(g) + ' 물자', false); }
+    if (e.t <= 0) { e.t = 3; const g = T.vil.goodsRate(); T.G.earnGoods(g); hop(e, 90); if (T.cam.z > 0.7 && zOf(e) === T.view()) T.fx.floatText(e.x, e.y + 26, '+' + T.fmt(g) + ' 물자', false); }
   }
   function updateKid(e, dt) {
     timers(e, dt); physics(e, dt);
@@ -581,7 +587,7 @@
       const hx = sx + 9 * ps, hy = sy - 20 * ps - Math.sin(e.phase * 3) * ps, hp = Math.max(1, ps * 0.7);
       ctx.fillRect(hx, hy, hp, hp); ctx.fillRect(hx + 2 * hp, hy, hp, hp); ctx.fillRect(hx, hy + hp, hp * 3, hp); ctx.fillRect(hx + hp, hy + 2 * hp, hp, hp);
     }
-    if (e.bubble && ps > 0.9 && T.Z === 0) drawBubble(ctx, sx, sy - 24 * ps - bob, e.bubble.text, Math.min(1, e.bubble.t * 4));
+    if (e.bubble && ps > 0.9 && T.Z === T.view()) drawBubble(ctx, sx, sy - 24 * ps - bob, e.bubble.text, Math.min(1, e.bubble.t * 4));
   }
   function drawBubble(ctx, x, y, text, a) {
     ctx.save();
@@ -622,7 +628,7 @@
   function draw(ctx, z = 0) {
     drawFlights(ctx, z);
     for (const e of all()) if (zOf(e) === z) drawCreature(ctx, e);
-    if (z === 0 && hover && !hover.held && !hover.inside && T.cam.z > 0.7) drawTag(ctx, hover);
+    if (z === T.view() && hover && !hover.held && !hover.inside && T.cam.z > 0.7) drawTag(ctx, hover);
   }
   function drawSleepers(ctx, n, z = 0) {
     if (n < 0.5 || T.cam.z < 0.5) return;

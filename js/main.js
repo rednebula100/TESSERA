@@ -73,9 +73,9 @@
     const st = B * g;
     return [Math.round((wx - B / 2) / st) * st + B / 2, Math.max(B / 2, Math.round((wy - B / 2) / st) * st + B / 2)];
   }
-  const keyOf = (x, y) => Math.round(x) + ',' + Math.round(y);
+  const keyOf = (x, y, z = T.view()) => Math.round(x) + ',' + Math.round(y) + ',' + z;
   let occupied = new Set();
-  M.reindex = () => { occupied = new Set(T.G.s.player.map((p) => keyOf(p[0], p[1]))); };
+  M.reindex = () => { occupied = new Set(T.G.s.player.map((p) => keyOf(p[0], p[1], p[2] || 0))); };
   function canAct() { return clickCD <= 0; }
   function spend() { clickCD = T.G.clickCD(); T.G.s.stats.clicks++; }
   // help build: only the empty cell under the cursor gets filled
@@ -106,7 +106,8 @@
     if (s.settings.gap > 0 && occupied.has(k)) { if (!quiet) { denyFlash = 0.25; } return false; }
     spend();
     const v = T.G.clickValue();
-    const p = [Math.round(x * 10) / 10, Math.round(y * 10) / 10];
+    const vz = T.view();
+    const p = vz ? [Math.round(x * 10) / 10, Math.round(y * 10) / 10, vz] : [Math.round(x * 10) / 10, Math.round(y * 10) / 10];
     if (s.player.length < 30000) { s.player.push(p); occupied.add(k); }
     T.G.drawPlayerBlock(p);
     T.G.earn(v);
@@ -166,7 +167,7 @@
     if (!down || down.placing) {
       const h = T.ent.pick(wx, wy);
       T.ent.hover = h;
-      const st = !h && T.st.hit(wx, wy, 0);
+      const st = !h && T.st.hit(wx, wy, T.view());
       cv.style.cursor = T.st.placing ? 'copy' : T.vil.zoneTool ? 'ew-resize' : h ? 'grab' : st ? (T.st.done(st) ? 'help' : 'cell') : 'crosshair';
       return;
     }
@@ -205,6 +206,10 @@
   cv.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); if (down && down.held) T.ent.release(down.ent); down = null; rdown = null; pinch = null; });
   cv.addEventListener('wheel', (e) => { e.preventDefault(); if (!observing) zoomAt(e.clientX, e.clientY, Math.exp(-T.clamp(e.deltaY, -120, 120) * 0.0018)); }, { passive: false });
   addEventListener('keydown', (e) => {
+    if (!(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) && T.G.layers() > 1) {
+      if (e.key === 'q' || e.key === 'Q' || e.key === 'PageUp') { M.layerBy(1); e.preventDefault(); return; }
+      if (e.key === 'e' || e.key === 'E' || e.key === 'PageDown') { M.layerBy(-1); e.preventDefault(); return; }
+    }
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
     const s = T.G.s;
     if (e.key === 'Escape') {
@@ -225,6 +230,26 @@
     else if (e.key === 'ArrowDown') { cam.ty -= 80 / cam.tz; clampCam(); }
   });
 
+  // ── layers in view ───────────────────────────────────────
+  let ghost = null, gctx = null;
+  function ghostCtx() {
+    if (!ghost || ghost.width !== cv.width || ghost.height !== cv.height) { ghost = document.createElement('canvas'); ghost.width = cv.width; ghost.height = cv.height; gctx = ghost.getContext('2d'); }
+    gctx.setTransform(1, 0, 0, 1, 0, 0); gctx.clearRect(0, 0, ghost.width, ghost.height);
+    gctx.setTransform(cam.dpr, 0, 0, cam.dpr, 0, 0); gctx.imageSmoothingEnabled = false;
+    return gctx;
+  }
+  M.focusT = 0;
+  M.setLayer = function (z) {
+    const L = T.G.layers();
+    const t = T.clamp(Math.round(z), 0, L - 1);
+    if (t === M.focusT) { T.audio.play('deny'); return; }
+    M.focusT = t;
+    T.audio.play(t > T.focus ? 'warpIn' : 'warpOut');
+    T.ui.updateLayerW();
+    if (T.st.placing) T.st.ghost = null;
+  };
+  M.layerBy = (d) => M.setLayer(M.focusT + d);
+
   // ── loop ─────────────────────────────────────────────────
   let last = performance.now();
   let tickAcc = 0, saveAcc = 0, autoAcc = 0, homeAcc = 0;
@@ -232,6 +257,9 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     const k = 1 - Math.pow(0.0001, dt);
+    if (M.focusT > T.G.layers() - 1) { M.focusT = T.G.layers() - 1; T.ui.updateLayerW(); }
+    T.focus += (M.focusT - T.focus) * (1 - Math.pow(0.004, dt));
+    if (Math.abs(M.focusT - T.focus) < 0.002) T.focus = M.focusT;
     cam.z += (cam.tz - cam.z) * k; cam.x += (cam.tx - cam.x) * k; cam.y += (cam.ty - cam.y) * k;
     if (observing) cam.tz = Math.max(ZMIN, cam.tz * (1 - dt * 0.01));
     let gdt = dt * (M.timeScale || 1);
@@ -274,25 +302,31 @@
     T.Z = 0;
     T.world.drawSky(ctx, color, sky);
     const L = T.G.layers();
+    // layers behind the one in view get smaller and hazier; layers in front of it pass by the camera as ghosts
     for (let z = L - 1; z >= 0; z--) {
       T.Z = z;
-      T.world.render(ctx, 'back', 0.42, z);
-      T.world.render(ctx, 'front', 1, z);
-      T.world.drawFloor(ctx, color, s.era, n, z);
-      T.world.render(ctx, 'under', 1, z);
-      T.vil.renderZones(ctx, z);
-      T.st.render(ctx, now, z, n);
-      T.ent.draw(ctx, z);
-      if (n > 0.01) T.st.renderGlow(ctx, n, z);
-      if (z > 0) T.world.fog(ctx, color, n, 0.16 + 0.04 * z);
+      const d = z - T.focus;
+      const front = d < -0.05;
+      const g = front ? ghostCtx() : ctx;
+      if (front && d < -1.6) continue;
+      T.world.render(g, 'back', 0.42, z);
+      T.world.render(g, 'front', 1, z);
+      T.world.drawFloor(g, color, s.era, n, z);
+      T.world.render(g, 'under', 1, z);
+      T.vil.renderZones(g, z);
+      T.st.render(g, now, z, n);
+      T.ent.draw(g, z);
+      if (n > 0.01) T.st.renderGlow(g, n, z);
+      if (front) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = T.clamp(0.28 + d * 0.16, 0.04, 0.28); ctx.drawImage(ghost, 0, 0); ctx.restore(); }
+      else if (d > 0.05) T.world.fog(ctx, color, n, T.clamp(0.16 + 0.04 * d, 0, 0.5) * T.clamp(d, 0, 1));
     }
-    T.Z = 0;
+    T.Z = T.view();
     T.fx.draw(ctx);
     if (n > 0.01) {
       ctx.fillStyle = `rgba(16,18,46,${0.28 * n})`;
       ctx.fillRect(0, 0, cam.W, cam.H);
-      T.st.renderGlow(ctx, n, 0);
-      T.ent.drawSleepers(ctx, n, 0);
+      T.st.renderGlow(ctx, n, T.view());
+      T.ent.drawSleepers(ctx, n, T.view());
     }
     if (!T.st.placing && !T.vil.zoneTool && (clickCD > 0 || denyFlash > 0)) {
       const tot = T.G.clickCD();

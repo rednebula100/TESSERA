@@ -11,8 +11,9 @@
   // the depth plane the player is looking at (float while the camera dollies)
   T.focus = 0;
   T.view = () => Math.round(T.focus);
-  T.layerK = (z = T.Z) => 1 - 0.13 * z;
-  const lift = (z) => z * 26;
+  // depth relative to the plane being looked at: in front of it things grow and slide down past the camera
+  T.layerK = (z = T.Z) => 1 - 0.13 * (z - T.focus);
+  const lift = (z) => (z - T.focus) * 26;
   T.w2s = (wx, wy) => { const k = T.layerK(); return [(wx - cam.x) * cam.z * k + cam.W / 2, cam.H / 2 - ((wy - cam.y) * k + lift(T.Z)) * cam.z]; };
   T.s2w = (sx, sy) => { const k = T.layerK(); return [(sx - cam.W / 2) / (cam.z * k) + cam.x, ((cam.H / 2 - sy) / cam.z - lift(T.Z)) / k + cam.y]; };
 
