@@ -41,6 +41,9 @@
       sunP: f < 0.74 ? f / 0.74 : -1, moonP: f >= 0.66 ? (f - 0.66) / 0.34 : -1,
       dusk: T.clamp(1 - Math.abs(f - 0.7) / 0.06, 0, 1) + T.clamp(1 - Math.min(f, 1 - f) / 0.04, 0, 1),
       event: s.event && s.event.t > 0 ? s.event.type : null,
+      // eclipse: the moon slides over the sun (0→1), stays (totality), slides off
+      ecl: s.event && s.event.t > 0 && s.event.type === 'eclipse' ? (() => { const k = 1 - s.event.t / (s.event.dur || 40); return k < 0.3 ? k / 0.3 : k < 0.7 ? 1 : (1 - k) / 0.3; })() : 0,
+      eclK: s.event && s.event.type === 'eclipse' ? 1 - s.event.t / (s.event.dur || 40) : 0,
     };
   };
   let lastDay = 0, lastNightFlag = false;
@@ -49,15 +52,17 @@
     if (s.era < 1) return;
     if (s.event && s.event.t > 0) { s.event.t -= dt; if (s.event.t <= 0) { s.event = null; T.ui.toast('하늘이 다시 평소로 돌아왔습니다.'); T.G.computeMult(); } }
     const d = V.day(), n = V.isNight();
-    if (d !== lastDay) { if (lastDay && !s.event && Math.random() < 0.05) startEvent('eclipse', 40); lastDay = d; s.day = d; }
+    if (d !== lastDay) { lastDay = d; s.day = d; s.eclipseAt = Math.random() < 0.05 ? 0.25 + Math.random() * 0.2 : -1; }
+    if (s.eclipseAt > 0 && V.dayFrac() >= s.eclipseAt && !s.event) { s.eclipseAt = -1; startEvent('eclipse', 40); }
     if (n && !lastNightFlag && !s.event && Math.random() < 0.07) startEvent('aurora', DAY * 0.25);
+    if (n !== lastNightFlag && lastDay) T.audio.play(n ? 'night' : 'morning');
     lastNightFlag = n;
   };
   function startEvent(type, dur) {
-    S().event = { type, t: dur };
+    S().event = { type, t: dur, dur };
     T.G.computeMult();
     T.fx.banner(type === 'aurora' ? '오로라' : '일식', type === 'aurora' ? '하늘이 춤춥니다. 잠시 동안 조각 ×3, 쿨타임 감소' : '해가 숨었습니다. 잠시 동안 조각 ×3, 쿨타임 감소');
-    T.audio.reveal();
+    T.audio.play('sky');
   }
   V.startEvent = startEvent;
 
@@ -109,20 +114,21 @@
     const s = S();
     const opts = [];
     if (s.era < 1) {
-      const maxT = T.G.maxSculptTier();
-      for (const d of T.DEFS) if (d.era === 0 && !d.hidden && d.tier <= maxT && (d.minRes || 0) <= s.resLv && (!d.sky || s.ms >= 6)) opts.push([d, [6, 3, 1][d.tier] * (d.sky ? 0.5 : 1)]);
+      // builders' own works stay modest; the big ones are left to the player's blueprints
+      const maxT = Math.min(3, T.G.maxTier());
+      for (const d of T.DEFS) if (d.era === 0 && !d.hidden && d.tier <= maxT && (d.res || 0) <= s.resLv && (!d.sky || s.ms >= 6)) opts.push([d, (6 / Math.pow(1 + d.tier, 1.3)) * (d.sky ? 0.5 : 1)]);
     } else {
       const pop = V.population(), cap = V.capacity();
       const needHouse = cap < pop + 2;
       for (const d of T.DEFS) {
-        if (d.hidden || d.era > s.era || (d.era === 0 && (d.tier > 1 || d.sky))) continue;
+        if (d.hidden || d.era > s.era || (d.res || 0) > s.resLv || (d.era === 0 && (d.tier > 2 || d.sky))) continue;
         const zt = T.ZONES[V.zoneFor(d.cat) || 'park'];
         if (!zt || zt.era > s.era) continue;
         if (d.tier >= 4 && (pop < 6 || T.ent.archs.length < 3)) continue;
         let w = { house: needHouse ? 10 : 1.2, park: 2.2, deco: 1.6, market: 1.1, prod: 1.3, civic: 0.6, water: 0.5, sculpture: 0.4 }[d.cat] || 1;
         if (d.era === s.era) w *= 1.8;
         if (d.era < s.era - 1) w *= 0.3;
-        if (d.tier === 5) w *= 0.15; else if (d.tier === 4) w *= 0.35;
+        if (d.tier >= 6) w *= 0.15; else if (d.tier >= 4) w *= 0.35;
         opts.push([d, w]);
       }
     }
@@ -143,7 +149,7 @@
     return T.st.create(def.id, seed, x, 'auto', { y, z });
   };
   V.maxAuto = (z = 0) => Math.max(1, Math.ceil(T.ent.archs.filter((e) => (e.d.z || 0) === z).length / 2.2));
-  V.onLayer = function () { T.ui.toast(`새 레이어가 열렸습니다. 이제 ${T.G.layers()}겹입니다. 워프 주민이 주민들을 데려갑니다.`, 'big'); T.fx.layerOpen(); };
+  V.onLayer = function () { T.ui.toast(`새 겹이 열렸습니다. 이제 ${T.G.layers()}겹입니다. 폴짝 주민이 주민들을 데려갑니다.`, 'big'); T.fx.layerOpen(); };
 
   // ── happiness ────────────────────────────────────────────
   let happyT = 0;
@@ -158,7 +164,7 @@
       const d = T.DEF[st.id];
       if (d.cap || d.cat === 'special') continue;
       const t = T.TIERS[d.tier];
-      auras.push([st.x + (T.st.shape(st).w * B) / 2, t.radius * rmul, t.aura * (st.src === 'bp' ? 1.5 : 1), st.z || 0]);
+      auras.push([st.x + (T.st.shape(st).w * B) / 2, t.radius * rmul, V.auraAt(st), st.z || 0]);
     }
     for (const e of T.ent.archs.concat(T.ent.workers)) {
       let h = 0;
@@ -167,7 +173,7 @@
       e.happy = Math.min(2.5, h);
     }
   };
-  V.auraAt = function (st) { const d = T.DEF[st.id]; if (d.cap || d.cat === 'special') return 0; return T.TIERS[d.tier].aura * (st.src === 'bp' ? 1.5 : 1); };
+  V.auraAt = function (st) { const d = T.DEF[st.id]; if (d.cap || d.cat === 'special') return 0; return T.TIERS[d.tier].aura * (st.src === 'bp' ? 1.5 : 1) * (T.st.completeness(st) / 3); };
 
   // ── homes ────────────────────────────────────────────────
   V.residents = () => T.ent.archs.concat(T.ent.workers, T.ent.painters, T.ent.splitters, T.ent.demos, T.ent.warpers);
@@ -231,7 +237,7 @@
           const p = fam[Math.floor(Math.random() * fam.length)];
           const kid = { s: p.d.s, home: h.uid, age: 0, z: h.z || 0, life: V.maxLife(), name: '아기 ' + ['콩', '꼬마', '아가', '몽글', '솜', '방글'][Math.floor(Math.random() * 6)] };
           s.kids.push(kid);
-          T.ent.spawnKid(kid, h);
+          T.ent.spawnKid(kid, h); T.audio.play('birth');
           T.ui.toast(`${T.DEF[h.id].name}에 아기가 태어났습니다!`);
           T.audio.unlock();
         }
@@ -258,20 +264,36 @@
   // ── zones ────────────────────────────────────────────────
   V.paintZone = function (x0, x1, type) {
     const s = S();
+    const z = T.view();
     if (x1 < x0) [x0, x1] = [x1, x0];
     x0 = Math.round(x0 / B) * B; x1 = Math.round(x1 / B) * B;
     if (x1 - x0 < B * 6) return;
     const out = [];
     for (const zn of s.zones) {
-      if ((zn.z || 0) !== 0 || zn.x1 <= x0 || zn.x0 >= x1) { out.push(zn); continue; }
+      if ((zn.z || 0) !== z || zn.x1 <= x0 || zn.x0 >= x1) { out.push(zn); continue; }
       if (zn.x0 < x0) out.push({ ...zn, x1: x0 });
       if (zn.x1 > x1) out.push({ ...zn, x0: x1 });
     }
-    out.push({ x0, x1, type, auto: 0, z: 0 });
+    out.push({ x0, x1, type, auto: 0, z });
     out.sort((a, b) => a.x0 - b.x0);
     s.zones = out;
     T.fx.zoneBorn({ x0, x1, type });
-    T.audio.unlock();
+    T.audio.play('unlock');
+    // what does not belong in the new zone is taken down by 쿵쿵 and the builders put up something that does
+    const zt = T.ZONES[type], ok = new Set([...(zt.cats || []), ...(zt.fill || [])]);
+    let n = 0, kept = 0;
+    for (const st of s.structs) {
+      if ((st.z || 0) !== z || !T.st.done(st) || st.condemned) continue;
+      const [a, b] = T.st.bbox(st);
+      if (b <= x0 || a >= x1) continue;
+      const d = T.DEF[st.id];
+      if (ok.has(d.cat) || d.cat === 'special') continue;
+      if (st.src !== 'auto') { kept++; continue; }
+      st.condemned = 'zone'; n++;
+    }
+    if (n) T.ui.toast(`${zt.name} 구역에 맞지 않는 건축물 ${n}개를 쿵쿵 주민이 치우고, 맞는 건축물을 새로 짓습니다.${kept ? ` 설계도로 지은 ${kept}개는 그대로 둡니다.` : ''}`, 'big');
+    else if (kept) T.ui.toast(`설계도로 지은 건축물 ${kept}개는 구역이 바뀌어도 그대로 둡니다.`);
+    if (n && !T.ent.demos.length) T.ui.toast('쿵쿵 주민이 없으면 철거가 시작되지 않아요. 등불 회관에서 데려올 수 있습니다.');
   };
   V.renderZones = function (ctx, z = 0) {
     const s = S();
@@ -286,9 +308,9 @@
       if (b < 0 || a > T.cam.W) continue;
       ctx.fillStyle = color ? d.color : d.gray;
       ctx.globalAlpha = 0.55; ctx.fillRect(a, gy + Math.max(2, 4 * zz), b - a, Math.max(1, 1.5 * zz)); ctx.globalAlpha = 1;
-      if (zz > 0.6 && z === 0) { ctx.font = '9px Galmuri9, monospace'; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillStyle = color ? T.shade(d.color, -0.35) : '#555'; ctx.fillText(d.name, a + 3, gy + 8 * zz); }
+      if (zz > 0.6 && z === T.view()) { ctx.font = '9px Galmuri9, monospace'; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillStyle = color ? T.shade(d.color, -0.35) : '#555'; ctx.fillText(d.name, a + 3, gy + 8 * zz); }
     }
-    if (V.zoneDrag && z === 0) {
+    if (V.zoneDrag && z === T.view()) {
       const [a] = T.w2s(Math.min(V.zoneDrag[0], V.zoneDrag[1]), 0), [b] = T.w2s(Math.max(V.zoneDrag[0], V.zoneDrag[1]), 0);
       ctx.fillStyle = (T.ZONES[V.zoneTool] || T.ZONES.park).color;
       ctx.globalAlpha = 0.25; ctx.fillRect(a, gy - 60, b - a, 60); ctx.globalAlpha = 1; ctx.fillRect(a, gy, b - a, 3);

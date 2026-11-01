@@ -1,6 +1,6 @@
 'use strict';
 // ─────────────────────────────────────────────────────────────
-//  ENTITIES: 건축가, 일꾼, 아기, 방울(채색), 끌(쪼개기), 망치(철거), 워프(레이어 이동)
+//  ENTITIES: 건축가, 일꾼, 아기, 방울(채색), 톡톡(다듬기), 쿵쿵(철거), 폴짝(겹 건너기)
 // ─────────────────────────────────────────────────────────────
 (function () {
   const B = T.B;
@@ -14,9 +14,9 @@
   const PAINT_COLS = ['#f29fae', '#8ecae6', '#b8e0a1', '#ffd166', '#c3a6ff', '#ffb38a'];
   const PET = {
     painter: { list: painters, sprite: 'drop', name: '방울', role: '채색 주민', up: ['gup', 'painter'], need: (s) => s.flags.l4Done > 0 },
-    splitter: { list: splitters, sprite: 'chisel', name: '끌', role: '쪼개기 주민', up: ['sup', 'chisel'], need: (s) => s.flags.l2Done > 0 },
-    demo: { list: demos, sprite: 'demo', name: '망치', role: '철거 주민', up: ['lup', 'demo'], need: (s) => s.era >= 1 },
-    warper: { list: warpers, sprite: 'portal', name: '워프', role: '레이어 이동 주민', up: ['zup', 'warper'], need: (s) => s.flags.l5Done > 0 },
+    splitter: { list: splitters, sprite: 'chisel', name: '톡톡', role: '다듬기 주민', up: ['sup', 'chisel'], need: (s) => s.flags.l2Done > 0 },
+    demo: { list: demos, sprite: 'demo', name: '쿵쿵', role: '철거 주민', up: ['lup', 'demo'], need: (s) => s.era >= 1 },
+    warper: { list: warpers, sprite: 'portal', name: '폴짝', role: '겹 건너기 주민', up: ['zup', 'warper'], need: (s) => s.flags.l5Done > 0 },
   };
   T.PET = PET;
 
@@ -36,7 +36,7 @@
     const e = base('arch', d);
     if (d.life === undefined) d.life = T.vil.maxLife();
     archs.push(e);
-    if (!silent) { e.x = T.clamp(T.cam.x + (Math.random() - 0.5) * Math.min(300, (T.cam.W / T.cam.z) * 0.4), -6000, 6000); e.y = 240 + Math.random() * 60; e.vy = -40; e.surpriseT = 1.2; e.t = 1.2; }
+    if (!silent) { e.x = T.clamp(T.cam.x + (Math.random() - 0.5) * Math.min(300, (T.cam.W / T.cam.z) * 0.4), -6000, 6000); e.y = 240 + Math.random() * 60; e.vy = -40; e.surpriseT = 1.2; e.t = 1.2; d.z = T.view(); T.fx.poof(e.x, e.y + 8); e.bubble = { text: ['안녕!', '반가워', '왔어요!', '일할게요'][Math.floor(Math.random() * 4)], t: 1.8 }; }
     return e;
   }
   function spawnWorker(d) { const e = base('worker', d); if (d.life === undefined) d.life = T.vil.maxLife(); workers.push(e); return e; }
@@ -129,11 +129,12 @@
       const v = T.G.blockValue(d) * (lucky ? 25 : 1);
       T.G.earn(v);
       S().stats.lifeBlocks++;
-      if (z === 0) T.fx.landed(tx, ty, v, lucky, color);
+      if (z === T.view()) T.fx.landed(tx, ty, v, lucky, color);
       T.audio.note(ty, T.SHAPE[d.s].index);
+      if (Math.random() < 0.25) T.audio.play('land', { x: tx });
     };
     if (e.light || flights.length > 400 || T.cam.z < 0.12) {
-      if (e.light && T.cam.z > 0.2 && z === 0) T.fx.beam(from[0], from[1], tx, ty, color);
+      if (e.light && T.cam.z > 0.2 && z === T.view()) T.fx.beam(from[0], from[1], tx, ty, color);
       onLand(); return;
     }
     const dist = Math.hypot(tx - from[0], ty - from[1]);
@@ -149,7 +150,7 @@
   function pick(wx, wy) {
     let best = null, bd = 1e9;
     for (const e of all()) {
-      if (e.inside || zOf(e) !== 0) continue;
+      if (e.inside || zOf(e) !== T.view()) continue;
       const sc = e.kind === 'kid' ? 0.6 : 1;
       const dx = wx - e.x, dy = wy - (e.y + 9 * sc);
       if (Math.abs(dx) < 11 * sc + 2 && Math.abs(dy) < 12 * sc + 2) { const dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = e; } }
@@ -164,7 +165,7 @@
   }
   function hold(e) { e.held = true; e.walkTo = null; e.surpriseT = 0.6; T.audio.pop(); if (Math.random() < 0.5) e.bubble = { text: ['으앗', '?!', '높다…', '내려줘'][Math.floor(Math.random() * 4)], t: 1.2 }; }
   function drag(e, wx, wy) { const ny = Math.max(0, wy - 10); e.vx = (wx - e.x) * 30; e.vy = (ny - e.y) * 30; e.x = wx; e.y = ny; }
-  function release(e) { e.held = false; e.vx = T.clamp(e.vx, -500, 500) * 0.5; e.vy = T.clamp(e.vy, -400, 600) * 0.5; e.joinOnLand = true; }
+  function release(e) { T.audio.play('drop'); e.held = false; e.vx = T.clamp(e.vx, -500, 500) * 0.5; e.vy = T.clamp(e.vy, -400, 600) * 0.5; e.joinOnLand = true; }
   function hop(e, v = 130) { if (e.y === 0 && e.vy === 0 && !e.inside) e.vy = v; }
   function notifyPlayerBlock(x, y) {
     for (const e of archs.concat(workers, kids)) {
@@ -177,7 +178,7 @@
   }
   // radial menu. At night it even wakes the sleepers, who come running out
   function groupAction(type, wx) {
-    const pool = archs.concat(workers, kids).filter((e) => zOf(e) === 0 && !e.held && Math.abs(e.x - wx) < 700);
+    const pool = archs.concat(workers, kids).filter((e) => zOf(e) === T.view() && !e.held && Math.abs(e.x - wx) < 700);
     if (type === 'hello') { for (const e of all()) if (!e.inside) { e.emote = 'wave'; e.emoteT = 2.5; } return pool.length; }
     let woke = 0;
     for (const e of pool) {
@@ -186,7 +187,12 @@
       e.emote = type;
       e.emoteT = { gather: 12, dance: 6, cheer: 3, rest: 9, scatter: 5, follow: 14, parade: 16 }[type] || 4;
       e.emoteX = wx + (type === 'gather' ? (Math.random() - 0.5) * 70 : 0);
-      if (type === 'scatter') e.emoteX = e.x + Math.sign(e.x - wx || 1) * (150 + Math.random() * 150);
+      if (type === 'scatter') {
+        e.emoteX = e.x + Math.sign(e.x - wx || 1) * (150 + Math.random() * 150);
+        // 「모여」 then 「흩어져」: they stay up and keep working through the night
+        if (S().era >= 1 && performance.now() - (e.lastGather || -1e9) < 90000) { e.nightShift = true; e.bubble = { text: ['밤샘이다!', '오늘은 늦게까지', '불 켜고 일하자'][Math.floor(Math.random() * 3)], t: 1.6 }; }
+      }
+      if (type === 'gather') e.lastGather = performance.now();
       if (type === 'cheer') { e.happyT = 3; hop(e, 200); }
       if (type === 'parade') e.emoteX = wx + 1200;
       if (!e.bubble && Math.random() < 0.3) e.bubble = { text: { gather: '모여라!', dance: '♪', cheer: '만세!', rest: '휴…', scatter: '와아', follow: '따라갈게', parade: '하나 둘' }[type], t: 1.3 };
@@ -227,8 +233,9 @@
     const step = T.G.walkSpeed() * mult * dt * (e.kind === 'kid' ? 1.15 : 1);
     if (Math.abs(dx) <= step) { e.x = x; return true; }
     e.x += Math.sign(dx) * step;
+    if (S().era >= 1 && Math.random() < dt * 3) T.world.wear(e.x, zOf(e), 0.15);
     e.walking = true;
-    if (Math.random() < dt * 0.6 && T.cam.z > 0.6 && zOf(e) === 0) T.fx.dust(e.x - e.dir * 6, 0, 1);
+    if (Math.random() < dt * 0.6 && T.cam.z > 0.6 && zOf(e) === T.view()) T.fx.dust(e.x - e.dir * 6, 0, 1);
     return false;
   }
   const doorX = (st) => st.x + (T.st.shape(st).w * B) / 2;
@@ -249,10 +256,11 @@
     }
     // awake: life drains; awake or sleeping outside at night drains faster
     const outsideNight = n > 0.6;
-    e.d.life -= dt * (outsideNight ? 1.6 : 1);
+    if (n < 0.25) e.nightShift = false;
+    e.d.life -= dt * (outsideNight ? (e.nightShift ? 1.3 : 1.6) : 1);
     if (e.d.life <= 0) { T.vil.die(e); return true; }
     if (e.d.life < T.vil.maxLife() * 0.15 && Math.random() < dt * 0.1 && !e.bubble) e.bubble = { text: '졸려…', t: 1.4 };
-    if (outsideNight && !e.emote) {
+    if (outsideNight && !e.emote && !e.nightShift) {
       if (home) {
         e.napping = false;
         if (walkToward(e, doorX(home), dt, 1.2)) { e.inside = 'sleep'; e.insideT = 1 + Math.random() * 4; if (e.proj) setProj(e, null); }
@@ -287,7 +295,7 @@
     if (townLife(e, dt)) return;
     if (e.emote) { doEmote(e, dt); return; }
     const petted = e.petT > 0;
-    if ((petted || e.light) && Math.random() < dt * (e.light ? 4 : 1.2) && zOf(e) === 0) T.fx.sparkle(e.x + (Math.random() - 0.5) * 14, e.y + 6 + Math.random() * 16, e.light);
+    if ((petted || e.light) && Math.random() < dt * (e.light ? 4 : 1.2) && zOf(e) === T.view()) T.fx.sparkle(e.x + (Math.random() - 0.5) * 14, e.y + 6 + Math.random() * 16, e.light);
     e.emoteCD -= dt;
     if (e.emoteCD < 0) { e.emoteCD = 18 + Math.random() * 40; if (!e.bubble && T.cam.z > 0.8) e.bubble = { text: ['♪', '…', '흠흠', '♬', '영차'][Math.floor(Math.random() * 5)], t: 1.5 }; }
     if (e.mournT > 0 && !(e.proj && e.proj.src === 'grave')) return;
@@ -352,7 +360,7 @@
     if (e.spot === undefined) e.spot = Math.random();
     if (!walkToward(e, e.job.x + B + e.spot * (sh.w - 2) * B, dt)) { lookAround(e); return; }
     e.t -= dt; e.look = [e.dir, 0];
-    if (e.t <= 0) { e.t = 3; const g = T.vil.goodsRate(); T.G.earnGoods(g); hop(e, 90); if (T.cam.z > 0.7 && zOf(e) === 0) T.fx.floatText(e.x, e.y + 26, '+' + T.fmt(g) + ' 물자', false); }
+    if (e.t <= 0) { e.t = 3; const g = T.vil.goodsRate(); T.G.earnGoods(g); hop(e, 90); if (T.cam.z > 0.7 && zOf(e) === T.view()) T.fx.floatText(e.x, e.y + 26, '+' + T.fmt(g) + ' 물자', false); }
   }
   function updateKid(e, dt) {
     timers(e, dt); physics(e, dt);
@@ -412,14 +420,14 @@
         i = T.st.nextCarve(st);
       }
       S().stats.carved += total;
-      T.G.earn(T.G.bestValue() * 0.04 * total * Math.pow(2, S().sup.sharp || 0));
-      if (Math.random() < 0.3) T.audio.chip();
+      T.G.earn(T.G.bestValue() * 0.04 * total * (1 + (S().sup.sharp || 0)));
+      if (Math.random() < 0.3) T.audio.play('chip', { x: e.x });
       return total;
-    }, '쪼갤 게 없네');
+    }, '다듬을 게 없네');
   }
   function updatePainter(e, dt) {
     const cd = T.G.paintCD();
-    if (e.walking || Math.random() < dt * 4) T.world.stain(e.x, e.col, e.walking ? 0.35 : 0.1);
+    if (e.walking || Math.random() < dt * 4) T.world.stain(e.x, e.col, e.walking ? 0.35 : 0.1, zOf(e));
     refiner(e, dt, (en) => nearestDone(en, (st) => T.st.nextPaint(st) >= 0), Math.max(0.05, cd), (en, st) => {
       let i = T.st.nextPaint(st);
       if (i < 0) { en.happyT = 2; if (Math.random() < 0.5) en.bubble = { text: '알록달록!', t: 1.4 }; return -1; }
@@ -432,7 +440,8 @@
         i = T.st.nextPaint(st);
       }
       S().stats.paintBlocks += total;
-      T.G.earn(T.G.bestValue() * 0.05 * total * 4 * Math.pow(2, S().gup.dense || 0));
+      T.G.earn(T.G.bestValue() * 0.05 * total * (2 + (S().gup.dense || 0)));
+      if (Math.random() < 0.35) T.audio.play('paint', { x: e.x });
       return total;
     }, '칠할 게 없네');
   }
@@ -441,7 +450,7 @@
     refiner(e, dt, (en) => { const c = T.st.condemned().filter((st) => (st.z || 0) === zOf(en)); if (!c.length) T.st.clearedCheck(); return c.sort((a, b) => Math.abs(a.x - en.x) - Math.abs(b.x - en.x))[0] || null; }, cd, (en, st) => {
       if (!S().structs.includes(st)) return -1;
       const n = cd < 0.2 ? 999 : 1;
-      T.audio.thunk();
+      T.audio.play('knock', { x: e.x });
       T.st.knock(st, n);
       if (!S().structs.includes(st)) { T.st.clearedCheck(); en.happyT = 1.5; return -1; }
       return 1;
@@ -470,18 +479,38 @@
       e.d.z = from;
     }
     const tg = e.target;
+    if (e.warp) { stepWarp(e, dt); return; }
     if (!all().includes(tg) || tg.inside || tg.proj) { e.target = null; e.t = 3; return; }
     if (!walkToward(e, tg.x - e.dir * 10, dt, 1.4)) return;
-    T.fx.portal(e.x, zOf(e));
-    tg.d.z = e.toZ; e.d.z = e.toZ;
-    tg.d.home = 0;
-    const land = (Math.random() - 0.5) * 200;
-    tg.x = land; e.x = land + 14;
-    tg.vy = 120; e.vy = 120; tg.surpriseT = 1;
-    T.fx.portal(land, e.toZ);
-    T.audio.warp();
-    e.target = null; e.t = 8;
-    if (e.toZ === 0) e.d.z = 0;
+    // open a portal, both get pulled in, and pop out of the other layer
+    e.warp = { t: 0, from: zOf(e), to: e.toZ, land: (Math.random() - 0.5) * 200, done: false };
+    T.fx.portal(e.x + e.dir * 5, zOf(e), 'in');
+    T.audio.play('warpIn', { x: e.x });
+  }
+  function stepWarp(e, dt) {
+    const w = e.warp, tg = e.target;
+    w.t += dt;
+    const IN = 0.42, OUT = 0.45;
+    if (w.t < IN) {
+      const k = w.t / IN;
+      e.warpScale = 1 - k * k; if (tg) tg.warpScale = 1 - k * k;
+      return;
+    }
+    if (!w.done) {
+      w.done = true;
+      if (tg && all().includes(tg)) { tg.d.z = w.to; tg.d.home = 0; tg.x = w.land; tg.surpriseT = 1.2; }
+      e.d.z = w.to; e.x = w.land + 14;
+      T.fx.portal(w.land + 7, w.to, 'out');
+      T.audio.play('warpOut', { x: w.land });
+    }
+    const k = T.clamp((w.t - IN) / OUT, 0, 1);
+    const s = T.easeOutBack ? T.easeOutBack(k) : k;
+    e.warpScale = s; if (tg) tg.warpScale = s;
+    if (k >= 1) {
+      e.warpScale = undefined; if (tg) tg.warpScale = undefined;
+      if (tg) { tg.vy = 60; }
+      e.warp = null; e.target = null; e.t = 8;
+    }
   }
 
   // ── update all ───────────────────────────────────────────
@@ -530,12 +559,26 @@
     if (e.y > 2) { const [gx, gy] = T.w2s(e.x, 0); const k = T.clamp(1 - e.y / 300, 0.2, 1); ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(gx - 7 * ps * k, gy - ps, 14 * ps * k, ps); }
     if (e.light) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 + Math.sin(e.phase * 4) * 0.1; ctx.drawImage(T.world.glowSprite('rgba(255,236,150,1)'), sx - 16 * ps, sy - 24 * ps, 32 * ps, 32 * ps); ctx.restore(); }
     const napY = e.napping ? 3 * ps : 0;
-    T.sprites.draw(ctx, kind, color, { sx, sy: sy - bob + napY, ps, face, look: e.look, legs, hat, sq: e.napping ? 0.25 : e.sq, dangle: e.held });
+    const wps = e.warpScale !== undefined ? ps * Math.max(0.02, e.warpScale) : ps;
+    if (e.warpScale !== undefined && e.warpScale < 0.05) return;
+    T.sprites.draw(ctx, kind, color, { sx, sy: sy - bob + napY, ps: wps, face: e.warpScale !== undefined ? 'surprise' : face, look: e.look, legs, hat, sq: e.napping ? 0.25 : e.sq, dangle: e.held });
+    if (e.warpScale !== undefined) return;
     const tool = (c1, c2, len) => { const bx = sx + e.dir * 8 * ps, by = sy - 10 * ps - bob; const up = e.t < 0.15 ? -1 : 1; ctx.fillStyle = c1; ctx.fillRect(bx, by - len * ps * up, ps, len * ps); ctx.fillStyle = c2; ctx.fillRect(bx - ps * 0.5, by - (len + 2) * ps * up, ps * 2, ps * 2.5); };
     if (kind === 'drop') tool(color ? '#8d6748' : '#555', color ? e.col : '#999', 7);
     if (kind === 'demo') tool(color ? '#8d6748' : '#555', color ? '#6b7280' : '#444', 6);
     if (kind === 'chisel') tool(color ? '#6b7280' : '#555', color ? '#cfd6de' : '#aaa', 5);
-    if (kind === 'portal' && ps > 1) { ctx.strokeStyle = color ? 'rgba(179,157,219,0.8)' : 'rgba(120,120,120,0.6)'; ctx.lineWidth = Math.max(1, ps * 0.6); ctx.beginPath(); ctx.ellipse(sx, sy - 9 * ps, 11 * ps + Math.sin(e.phase * 3) * ps, 4 * ps, 0, 0, Math.PI * 2); ctx.stroke(); }
+    if (kind === 'portal' && ps > 0.8) { // two pixel motes circling the head, in front and behind
+      for (let i = 0; i < 2; i++) {
+        const a = e.phase * 2.4 + i * Math.PI;
+        const mx = Math.round(sx + Math.cos(a) * 9 * ps), my = Math.round(sy - 17 * ps - bob + Math.sin(a) * 2.5 * ps);
+        const front = Math.sin(a) > 0, m = Math.max(1, Math.round(ps * 1.3));
+        ctx.globalAlpha = front ? 1 : 0.45;
+        ctx.fillStyle = color ? (i ? '#c3a6ff' : '#ffe08a') : (i ? '#9a9a97' : '#d8d8d5');
+        ctx.fillRect(mx - m / 2, my - m / 2, m, m);
+        if (front) { ctx.fillStyle = '#ffffff'; ctx.fillRect(mx - m / 2, my - m / 2, Math.max(1, m / 2), Math.max(1, m / 2)); }
+      }
+      ctx.globalAlpha = 1;
+    }
     if (e.kind === 'worker' && ps > 1) { ctx.fillStyle = color ? '#f4efe6' : '#ddd'; ctx.fillRect(sx - 3 * ps, sy - 6 * ps - bob, 6 * ps, 3 * ps); }
     if (e.napping && ps > 1 && Math.sin(e.phase * 2) > 0) { ctx.fillStyle = color ? '#8ecae6' : '#888'; ctx.font = `${Math.round(8 * T.cam.z)}px Galmuri9, monospace`; ctx.fillText('z', sx + 8 * ps, sy - 18 * ps - Math.sin(e.phase) * 3); }
     if (e.mournT > 0 && ps > 1 && Math.random() < 0.06) T.fx.tear(e.x + e.dir * 3, e.y + 12);
@@ -544,7 +587,7 @@
       const hx = sx + 9 * ps, hy = sy - 20 * ps - Math.sin(e.phase * 3) * ps, hp = Math.max(1, ps * 0.7);
       ctx.fillRect(hx, hy, hp, hp); ctx.fillRect(hx + 2 * hp, hy, hp, hp); ctx.fillRect(hx, hy + hp, hp * 3, hp); ctx.fillRect(hx + hp, hy + 2 * hp, hp, hp);
     }
-    if (e.bubble && ps > 0.9 && T.Z === 0) drawBubble(ctx, sx, sy - 24 * ps - bob, e.bubble.text, Math.min(1, e.bubble.t * 4));
+    if (e.bubble && ps > 0.9 && T.Z === T.view()) drawBubble(ctx, sx, sy - 24 * ps - bob, e.bubble.text, Math.min(1, e.bubble.t * 4));
   }
   function drawBubble(ctx, x, y, text, a) {
     ctx.save();
@@ -585,7 +628,7 @@
   function draw(ctx, z = 0) {
     drawFlights(ctx, z);
     for (const e of all()) if (zOf(e) === z) drawCreature(ctx, e);
-    if (z === 0 && hover && !hover.held && !hover.inside && T.cam.z > 0.7) drawTag(ctx, hover);
+    if (z === T.view() && hover && !hover.held && !hover.inside && T.cam.z > 0.7) drawTag(ctx, hover);
   }
   function drawSleepers(ctx, n, z = 0) {
     if (n < 0.5 || T.cam.z < 0.5) return;

@@ -1,7 +1,7 @@
 'use strict';
 // ─────────────────────────────────────────────────────────────
 //  MAIN: 루프, 입력, 카메라, 레이어별 렌더링
-//  좌클릭: 블럭(격자) / 주민 쓰다듬기, 끌기 / 짓는 건축물 거들기 / 건축물 정보 / 설계도 확정 / 구역
+//  좌클릭: 블록(격자) / 주민 쓰다듬기, 끌기 / 짓는 건축물 거들기 / 건축물 정보 / 설계도 확정 / 구역
 //  우클릭 드래그: 화면 이동, 우클릭: 부탁 메뉴
 // ─────────────────────────────────────────────────────────────
 (function () {
@@ -73,18 +73,19 @@
     const st = B * g;
     return [Math.round((wx - B / 2) / st) * st + B / 2, Math.max(B / 2, Math.round((wy - B / 2) / st) * st + B / 2)];
   }
-  const keyOf = (x, y) => Math.round(x) + ',' + Math.round(y);
+  const keyOf = (x, y, z = T.view()) => Math.round(x) + ',' + Math.round(y) + ',' + z;
   let occupied = new Set();
-  M.reindex = () => { occupied = new Set(T.G.s.player.map((p) => keyOf(p[0], p[1]))); };
+  M.reindex = () => { occupied = new Set(T.G.s.player.map((p) => keyOf(p[0], p[1], p[2] || 0))); };
   function canAct() { return clickCD <= 0; }
   function spend() { clickCD = T.G.clickCD(); T.G.s.stats.clicks++; }
-  // help build: the clicked block if it is free, otherwise the next free one nearby
-  function contribute(st, wx, wy) {
+  // help build: only the empty cell under the cursor gets filled
+  M.cellAt = function (st, wx, wy) {
     const sh = T.st.shape(st);
     const c = Math.floor((wx - st.x) / B), r = Math.floor((wy - (st.y || 0)) / B);
-    let ci = sh.blocks.findIndex((b) => b.c === c && b.r === r);
-    if (ci < 0 || st.f[ci] || T.st.rt(st).res.has(ci)) ci = T.st.nextCell(st, wx);
-    if (ci < 0) return false;
+    const ci = sh.blocks.findIndex((b) => b.c === c && b.r === r);
+    return ci >= 0 && !st.f[ci] ? ci : -1;
+  };
+  function contribute(st, ci) {
     spend();
     T.st.fill(st, ci);
     const v = T.G.clickValue();
@@ -93,7 +94,8 @@
     const [x, y] = T.st.cellPos(st, ci);
     T.fx.floatText(x, y + 8, '+' + T.fmt(v), false);
     T.fx.splash(x, y, T.st.tint(T.st.blockColor(st, ci), false));
-    T.audio.place(y);
+    T.fx.snapRing(x, y);
+    T.audio.play('fill', { y });
     return true;
   }
   function placePlayer(wx, wy, quiet) {
@@ -104,7 +106,8 @@
     if (s.settings.gap > 0 && occupied.has(k)) { if (!quiet) { denyFlash = 0.25; } return false; }
     spend();
     const v = T.G.clickValue();
-    const p = [Math.round(x * 10) / 10, Math.round(y * 10) / 10];
+    const vz = T.view();
+    const p = vz ? [Math.round(x * 10) / 10, Math.round(y * 10) / 10, vz] : [Math.round(x * 10) / 10, Math.round(y * 10) / 10];
     if (s.player.length < 30000) { s.player.push(p); occupied.add(k); }
     T.G.drawPlayerBlock(p);
     T.G.earn(v);
@@ -116,13 +119,17 @@
     return true;
   }
   function leftClick(wx, wy, quiet) {
-    const st = T.st.hit(wx, wy, 0);
+    const z = T.view();
+    const st = T.st.hit(wx, wy, z);
     if (st && !T.st.done(st)) {
       if (st.clearing) { if (!quiet) T.ui.toast('철거가 끝나면 함께 지을 수 있어요.'); return true; }
+      const ci = M.cellAt(st, wx, wy);
+      if (ci < 0) { if (!quiet) T.audio.play('tapEmpty'); return true; }
       if (!canAct()) { pending = [wx, wy]; return true; }
-      contribute(st, wx, wy); return true;
+      return contribute(st, ci);
     }
-    if (st && !quiet) { T.ui.openStruct(st); T.audio.click(); return true; }
+    if (st && !quiet) { T.ui.openStruct(st); T.audio.play('open'); return true; }
+    if (T.G.s.settings.noPlace) return false;
     if (!canAct()) { pending = [wx, wy]; return true; }
     return placePlayer(wx, wy, quiet);
   }
@@ -141,7 +148,10 @@
     if (e.button === 2 || e.button === 1) { rdown = { sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, wx, button: e.button }; return; }
     if (T.st.placing) { down = { placing: true }; return; }
     if (T.vil.zoneTool && wy < 40) { T.vil.zoneDrag = [wx, wx]; down = { zone: true }; return; }
-    down = { sx: e.clientX, sy: e.clientY, moved: false, ent: T.ent.pick(wx, wy), held: false };
+    // an empty cell under the cursor wins over a builder standing in front of it (the highlight shows it)
+    const ast = T.st.at(wx, wy, T.view(), true);
+    const onCell = ast && !ast.clearing && M.cellAt(ast, wx, wy) >= 0;
+    down = { sx: e.clientX, sy: e.clientY, moved: false, ent: onCell ? null : T.ent.pick(wx, wy), held: false };
   });
   cv.addEventListener('pointermove', (e) => {
     if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, [e.clientX, e.clientY]);
@@ -158,9 +168,10 @@
     }
     if (down && down.zone) { T.vil.zoneDrag[1] = wx; return; }
     if (!down || down.placing) {
-      const h = T.ent.pick(wx, wy);
+      const hst = T.st.at(wx, wy, T.view(), true);
+      const h = hst && !hst.clearing && M.cellAt(hst, wx, wy) >= 0 ? null : T.ent.pick(wx, wy);
       T.ent.hover = h;
-      const st = !h && T.st.hit(wx, wy, 0);
+      const st = !h && T.st.hit(wx, wy, T.view());
       cv.style.cursor = T.st.placing ? 'copy' : T.vil.zoneTool ? 'ew-resize' : h ? 'grab' : st ? (T.st.done(st) ? 'help' : 'cell') : 'crosshair';
       return;
     }
@@ -199,6 +210,10 @@
   cv.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); if (down && down.held) T.ent.release(down.ent); down = null; rdown = null; pinch = null; });
   cv.addEventListener('wheel', (e) => { e.preventDefault(); if (!observing) zoomAt(e.clientX, e.clientY, Math.exp(-T.clamp(e.deltaY, -120, 120) * 0.0018)); }, { passive: false });
   addEventListener('keydown', (e) => {
+    if (!(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) && T.G.layers() > 1) {
+      if (e.key === 'q' || e.key === 'Q' || e.key === 'PageUp') { M.layerBy(1); e.preventDefault(); return; }
+      if (e.key === 'e' || e.key === 'E' || e.key === 'PageDown') { M.layerBy(-1); e.preventDefault(); return; }
+    }
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
     const s = T.G.s;
     if (e.key === 'Escape') {
@@ -219,6 +234,26 @@
     else if (e.key === 'ArrowDown') { cam.ty -= 80 / cam.tz; clampCam(); }
   });
 
+  // ── layers in view ───────────────────────────────────────
+  let ghost = null, gctx = null;
+  function ghostCtx() {
+    if (!ghost || ghost.width !== cv.width || ghost.height !== cv.height) { ghost = document.createElement('canvas'); ghost.width = cv.width; ghost.height = cv.height; gctx = ghost.getContext('2d'); }
+    gctx.setTransform(1, 0, 0, 1, 0, 0); gctx.clearRect(0, 0, ghost.width, ghost.height);
+    gctx.setTransform(cam.dpr, 0, 0, cam.dpr, 0, 0); gctx.imageSmoothingEnabled = false;
+    return gctx;
+  }
+  M.focusT = 0;
+  M.setLayer = function (z) {
+    const L = T.G.layers();
+    const t = T.clamp(Math.round(z), 0, L - 1);
+    if (t === M.focusT) { T.audio.play('deny'); return; }
+    M.focusT = t;
+    T.audio.play(t > T.focus ? 'warpIn' : 'warpOut');
+    T.ui.updateLayerW();
+    if (T.st.placing) T.st.ghost = null;
+  };
+  M.layerBy = (d) => M.setLayer(M.focusT + d);
+
   // ── loop ─────────────────────────────────────────────────
   let last = performance.now();
   let tickAcc = 0, saveAcc = 0, autoAcc = 0, homeAcc = 0;
@@ -226,9 +261,12 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     const k = 1 - Math.pow(0.0001, dt);
+    if (M.focusT > T.G.layers() - 1) { M.focusT = T.G.layers() - 1; T.ui.updateLayerW(); }
+    T.focus += (M.focusT - T.focus) * (1 - Math.pow(0.004, dt));
+    if (Math.abs(M.focusT - T.focus) < 0.002) T.focus = M.focusT;
     cam.z += (cam.tz - cam.z) * k; cam.x += (cam.tx - cam.x) * k; cam.y += (cam.ty - cam.y) * k;
     if (observing) cam.tz = Math.max(ZMIN, cam.tz * (1 - dt * 0.01));
-    let gdt = dt;
+    let gdt = dt * (M.timeScale || 1);
     if (hitstop > 0) { hitstop -= dt; gdt = 0; }
     clickCD = Math.max(0, clickCD - dt);
     denyFlash = Math.max(0, denyFlash - dt);
@@ -249,10 +287,11 @@
       tickAcc = 0;
       T.ui.tick();
     }
-    if (autoAcc >= 0.5) { T.G.automate(autoAcc); autoAcc = 0; }
+    if (autoAcc >= 0.5) { T.G.automate(autoAcc * (M.timeScale || 1)); autoAcc = 0; }
     if (homeAcc >= 5) { homeAcc = 0; T.vil.assignHomes(); }
     if (saveAcc >= 15) { saveAcc = 0; T.G.save(); }
     render(now);
+    T.fx.drawUI(dt);
     T.ui.frame();
     requestAnimationFrame(frame);
   }
@@ -267,25 +306,31 @@
     T.Z = 0;
     T.world.drawSky(ctx, color, sky);
     const L = T.G.layers();
+    // layers behind the one in view get smaller and hazier; layers in front of it pass by the camera as ghosts
     for (let z = L - 1; z >= 0; z--) {
       T.Z = z;
-      T.world.render(ctx, 'back', 0.42, z);
-      T.world.render(ctx, 'front', 1, z);
-      T.world.drawFloor(ctx, color, s.era, n, z);
-      T.world.render(ctx, 'under', 1, z);
-      T.vil.renderZones(ctx, z);
-      T.st.render(ctx, now, z, n);
-      T.ent.draw(ctx, z);
-      if (n > 0.01) T.st.renderGlow(ctx, n, z);
-      if (z > 0) T.world.fog(ctx, color, n, 0.16 + 0.04 * z);
+      const d = z - T.focus;
+      const front = d < -0.05;
+      const g = front ? ghostCtx() : ctx;
+      if (front && d < -1.6) continue;
+      T.world.render(g, 'back', 0.42, z);
+      T.world.render(g, 'front', 1, z);
+      T.world.drawFloor(g, color, s.era, n, z);
+      T.world.render(g, 'under', 1, z);
+      T.vil.renderZones(g, z);
+      T.st.render(g, now, z, n);
+      T.ent.draw(g, z);
+      if (n > 0.01) T.st.renderGlow(g, n, z);
+      if (front) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = T.clamp(0.28 + d * 0.16, 0.04, 0.28); ctx.drawImage(ghost, 0, 0); ctx.restore(); }
+      else if (d > 0.05) T.world.fog(ctx, color, n, T.clamp(0.16 + 0.04 * d, 0, 0.5) * T.clamp(d, 0, 1));
     }
-    T.Z = 0;
+    T.Z = T.view();
     T.fx.draw(ctx);
     if (n > 0.01) {
       ctx.fillStyle = `rgba(16,18,46,${0.28 * n})`;
       ctx.fillRect(0, 0, cam.W, cam.H);
-      T.st.renderGlow(ctx, n, 0);
-      T.ent.drawSleepers(ctx, n, 0);
+      T.st.renderGlow(ctx, n, T.view());
+      T.ent.drawSleepers(ctx, n, T.view());
     }
     if (!T.st.placing && !T.vil.zoneTool && (clickCD > 0 || denyFlash > 0)) {
       const tot = T.G.clickCD();
@@ -295,7 +340,23 @@
       ctx.arc(mouse.sx + 14, mouse.sy + 14, 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (denyFlash > 0 ? 1 : 1 - clickCD / tot));
       ctx.stroke();
     }
-    if (!T.st.placing && !T.vil.zoneTool && !down && !rdown && cam.z > 0.6 && s.settings.gap > 0 && mouse.wy > 0 && !T.st.at(mouse.wx, mouse.wy, 0)) {
+    const hov = !T.st.placing && !T.vil.zoneTool && !rdown && cam.z > 0.35 ? T.st.at(mouse.wx, mouse.wy, T.view(), true) : null;
+    if (hov && !hov.clearing) {
+      // the empty cell under the cursor: click fills exactly this one
+      const ci = M.cellAt(hov, mouse.wx, mouse.wy);
+      if (ci >= 0) {
+        const [cx, cy] = T.st.cellPos(hov, ci);
+        const [px, py] = T.w2s(cx - B / 2, cy + B / 2);
+        const zz = cam.z * T.layerK();
+        const pulse = 0.55 + Math.sin(performance.now() / 140) * 0.25;
+        ctx.fillStyle = color ? `rgba(47,111,176,${0.18 * pulse})` : `rgba(40,40,40,${0.12 * pulse})`;
+        ctx.fillRect(Math.round(px), Math.round(py), Math.ceil(B * zz), Math.ceil(B * zz));
+        ctx.strokeStyle = color ? `rgba(47,111,176,${pulse})` : `rgba(40,40,40,${pulse * 0.8})`;
+        ctx.lineWidth = Math.max(1, Math.round(zz / 3));
+        ctx.strokeRect(Math.round(px) + 0.5, Math.round(py) + 0.5, Math.ceil(B * zz) - 1, Math.ceil(B * zz) - 1);
+      }
+    }
+    if (!hov && !s.settings.noPlace && !T.st.placing && !T.vil.zoneTool && !down && !rdown && cam.z > 0.6 && s.settings.gap > 0 && mouse.wy > 0 && !T.st.at(mouse.wx, mouse.wy, T.view())) {
       const [x, y] = snap(mouse.wx, mouse.wy);
       const [px, py] = T.w2s(x - B / 2, y + B / 2);
       ctx.strokeStyle = occupied.has(keyOf(x, y)) ? 'rgba(200,60,60,0.5)' : color ? 'rgba(47,111,176,0.45)' : 'rgba(40,40,40,0.3)';
@@ -309,6 +370,7 @@
     resize();
     const q = new URLSearchParams(location.search);
     const isDemo = q.has('demo');
+    if (q.has('dev')) setTimeout(() => { T.G.s.flags.dev = true; T.ui.rebuildPanel(true); }, 0);
     if (isDemo) M.noSave = true;
     const loaded = isDemo ? false : T.G.load();
     const s = T.G.s;
@@ -322,7 +384,8 @@
     if (loaded && (s.archs.length || s.structs.length)) M.home(); else { cam.tx = cam.x = 0; cam.ty = cam.y = 120; cam.tz = cam.z = 2.4; }
     clampCam(); cam.x = cam.tx; cam.y = cam.ty; cam.z = cam.tz;
     if (off) setTimeout(() => T.ui.offline(off), 2400);
-    if (!loaded && T.G.oldSave && !isDemo) setTimeout(() => T.ui.toast('큰 업데이트가 있어서 처음부터 시작합니다. 블럭 쪼개기부터 깊이 레이어까지, 새로 지어 봐요.', 'big'), 2600);
+    if (!loaded && T.G.oldSave && !isDemo) setTimeout(() => T.ui.toast('아주 오래된 저장이라 처음부터 시작합니다.', 'big'), 1800);
+    if (loaded && T.G.migrated && !isDemo) setTimeout(() => T.ui.toast('v4 업데이트: 저장을 그대로 옮겼습니다. 다듬기, 소리, 새 설계도 단계를 만나 보세요.', 'big'), 1800);
     const tc = document.getElementById('titlecard');
     setTimeout(() => tc.classList.add('in'), 50);
     const hide = () => { tc.classList.add('out'); setTimeout(() => tc.remove(), 900); };
@@ -352,9 +415,9 @@
       const z = s.zup.layer ? i % T.G.layers() : 0;
       const st = T.vil.startProject((Math.random() - 0.5) * 300, z);
       if (!st) continue;
-      st.f = null;
+      st.f = null; st.fin = 1;
       const nb = T.st.count(st);
-      st.lv = new Array(nb).fill(s.resLv); st.cv = new Array(nb).fill(0);
+      st.lv = new Array(nb).fill(T.st.maxLvOf(st)); st.cv = new Array(nb).fill(0);
       st.pt = st.lv.map((l) => (q.has('paint') ? T.RES[l] * T.RES[l] : 0));
     }
     if (kind === 'village') for (let i = 0; i < 4; i++) s.workers.push({ s: 'square', home: 0, name: '일꾼' + i, life: 400, z: 0 });

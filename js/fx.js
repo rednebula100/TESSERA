@@ -141,10 +141,41 @@
         ctx.globalAlpha = 1;
       } else if (e.type === 'portal') {
         if (T.Z !== (e.z || 0)) continue;
-        const [px, py] = T.w2s(e.x, 10);
         const zz = z * T.layerK(e.z);
-        ctx.strokeStyle = `rgba(195,166,255,${1 - k})`; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.ellipse(px, py, (6 + k * 18) * zz, (14 + k * 10) * zz, 0, 0, Math.PI * 2); ctx.stroke();
+        const [px, py] = T.w2s(e.x, 11);
+        const open = k < 0.3 ? T.easeOut(k / 0.3) : k > 0.75 ? 1 - (k - 0.75) / 0.25 : 1;
+        const P = Math.max(1, Math.round(zz)); // one portal pixel
+        const rings = colorOn() ? ['#5e4b8b', '#8e7cc3', '#c3a6ff', '#efe6ff'] : ['#3a3a3a', '#6a6a68', '#9a9a97', '#e0e0de'];
+        const RX = 7, RY = 12;
+        for (let j = -RY; j <= RY; j++) {
+          if (Math.abs(j) > RY * open) continue; // unfold from the middle scanline
+          for (let i = -RX; i <= RX; i++) {
+            const q = (i * i) / (RX * RX) + (j * j) / (RY * RY);
+            if (q > 1) continue;
+            const ring = Math.min(3, Math.floor((1 - q) * 4 + Math.sin(e.t * 18 + j * 0.7) * 0.4));
+            if (ring === 3 && ((i + j + Math.floor(e.t * 20)) & 1)) continue; // dithered core
+            ctx.fillStyle = rings[Math.max(0, ring)];
+            ctx.fillRect(Math.round(px + i * P), Math.round(py + j * P), P, P);
+          }
+        }
+        // stars: spiral inward on the way in, scatter outward on the way out
+        ctx.fillStyle = colorOn() ? '#ffe08a' : '#ffffff';
+        for (let n = 0; n < 8; n++) {
+          const a = n * 0.785 + e.t * (e.dir === 'in' ? 7 : -5);
+          const r = (e.dir === 'in' ? (1 - k) * 22 + 3 : k * 24 + 3) * zz;
+          ctx.globalAlpha = 1 - k * 0.6;
+          ctx.fillRect(Math.round(px + Math.cos(a) * r) - P, Math.round(py + Math.sin(a) * r * 0.8), P * 2, P); ctx.fillRect(Math.round(px + Math.cos(a) * r) - P / 2, Math.round(py + Math.sin(a) * r * 0.8) - P / 2, P, P * 2);
+        }
+        ctx.globalAlpha = 1;
+      } else if (e.type === 'ring') {
+        const [px, py] = T.w2s(e.x, e.y);
+        const r = Math.round((4 + k * 7) * z);
+        ctx.globalAlpha = 1 - k;
+        ctx.fillStyle = colorOn() ? '#2f6fb0' : '#444';
+        const t = Math.max(1, Math.round(z * 0.8));
+        ctx.fillRect(Math.round(px - r), Math.round(py - r), r * 2, t); ctx.fillRect(Math.round(px - r), Math.round(py + r - t), r * 2, t);
+        ctx.fillRect(Math.round(px - r), Math.round(py - r), t, r * 2); ctx.fillRect(Math.round(px + r - t), Math.round(py - r), t, r * 2);
+        ctx.globalAlpha = 1;
       } else if (e.type === 'layer') {
         ctx.fillStyle = `rgba(255,255,255,${(1 - k) * 0.35})`; ctx.fillRect(0, 0, T.cam.W, T.cam.H);
       } else if (e.type === 'zone') {
@@ -159,7 +190,7 @@
         const yy = y0 - h * ky;
         const g = ctx.createLinearGradient(0, yy - 30 * z, 0, yy + 6 * z);
         g.addColorStop(0, 'rgba(255,255,255,0)');
-        g.addColorStop(0.8, 'rgba(255,255,255,0.85)');
+        g.addColorStop(0.8, e.soft ? 'rgba(231,214,255,0.6)' : 'rgba(255,255,255,0.85)');
         g.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = g;
         ctx.fillRect(x0 - 6 * z, yy - 30 * z, w + 12 * z, 36 * z);
@@ -187,6 +218,22 @@
     T.audio.complete();
     setTimeout(() => T.ui.stamp(def, reward, (T.G.s.bps.done[def.id] || 0) <= 1), 500);
   };
+  // a newcomer arrives: a little pixel smoke ring
+  FX.poof = function (x, y) {
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; add({ x: x + Math.cos(a) * 6, y: y + Math.sin(a) * 6, vx: Math.cos(a) * 40, vy: Math.sin(a) * 40 + 10, g: 0, life: 0.6, max: 0.6, kind: 'puff', color: colorOn() ? '#f4ead6' : '#e4e4e2', size: 3 }); }
+    for (let i = 0; i < 5; i++) add({ x, y, vx: (Math.random() - 0.5) * 60, vy: 40 + Math.random() * 40, g: 60, life: 0.7, max: 0.7, kind: 'spark', color: colorOn() ? '#ffd166' : '#ffffff', size: 1.3 });
+  };
+  // a cell snaps into place: a tiny pixel ring
+  FX.snapRing = function (x, y) {
+    effects.push({ type: 'ring', x, y, t: 0, dur: 0.32, z: T.view() });
+  };
+  // all blocks placed, waiting for 톡톡: a soft shimmer instead of the big stamp
+  FX.frameDone = function (st, sh) {
+    const B = T.B;
+    effects.push({ type: 'sweep', x: st.x, y: st.y || 0, w: sh.w * B, h: sh.h * B, t: 0, dur: 0.8, soft: true });
+    for (let i = 0; i < 10; i++) add({ x: st.x + Math.random() * sh.w * B, y: (st.y || 0) + Math.random() * sh.h * B, vx: 0, vy: 14, g: 0, life: 0.9, max: 0.9, kind: 'spark', color: colorOn() ? '#e7d6ff' : '#ffffff', size: 1.2 });
+    if (st.src === 'bp') T.ui.toast(`「${T.DEF[st.id].name}」 골조 완성. 톡톡 주민이 ${T.RES_NAME[T.st.needRes(st)]}까지 다듬으면 완공됩니다.`);
+  };
   FX.demolish = function (st, sh) {
     const B = T.B;
     for (let i = 0; i < Math.min(60, sh.blocks.length); i++) {
@@ -205,9 +252,9 @@
     if (T.cam.z < 0.35) return;
     for (let i = 0; i < 3; i++) add({ x: x + (Math.random() - 0.5) * 6, y: y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * 90, vy: 30 + Math.random() * 70, g: 300, life: 0.5, max: 0.5, kind: 'px', color: Math.random() < 0.5 ? '#ffffff' : col, size: 1 });
   };
-  FX.portal = function (x, z) {
-    effects.push({ type: 'portal', x, z, t: 0, dur: 0.9 });
-    if (z === 0) for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2; add({ x: x + Math.cos(a) * 10, y: 10 + Math.sin(a) * 10, vx: -Math.cos(a) * 30, vy: -Math.sin(a) * 30 + 20, g: 0, life: 0.7, max: 0.7, kind: 'spark', color: '#c3a6ff', size: 1.2 }); }
+  // pixel portal: dithered purple ovals unfold from a scanline; stars spiral in ('in') or burst out ('out')
+  FX.portal = function (x, z, dir = 'in') {
+    effects.push({ type: 'portal', x, z, dir, t: 0, dur: dir === 'in' ? 0.75 : 0.65 });
   };
   FX.layerOpen = function () { effects.push({ type: 'layer', t: 0, dur: 1.6 }); };
   FX.banner = function (title, sub) {
@@ -223,6 +270,78 @@
   FX.tear = function (x, y) { add({ x, y, vx: 0, vy: -10, g: 160, life: 0.6, max: 0.6, kind: 'px', color: '#8ecae6', size: 1.3 }); };
   FX.zoneBorn = function (z) {
     effects.push({ type: 'zone', x0: z.x0, x1: z.x1, color: (T.ZONES[z.type] || T.ZONES.park).color, t: 0, dur: 1.4 });
+  };
+
+  // ── UI layer: pixel particles over the panels (screen space) ──
+  const uip = [];
+  let uicv = null, uictx = null;
+  function uiCanvas() {
+    if (uicv) return uictx;
+    uicv = document.createElement('canvas'); uicv.id = 'uifx';
+    document.body.appendChild(uicv);
+    const fit = () => { uicv.width = innerWidth; uicv.height = innerHeight; };
+    fit(); addEventListener('resize', fit);
+    uictx = uicv.getContext('2d');
+    return uictx;
+  }
+  const UIPAL = () => (colorOn() ? ['#ffd166', '#ef6f91', '#81b29a', '#5b8fb9', '#ffffff', '#e9b872'] : ['#2b2b2b', '#8a8a88', '#ffffff', '#5a5a58']);
+  function uiAdd(p) { if (uip.length < 600) uip.push(p); }
+  // little pixel sparks out of a button (k = how many were bought)
+  FX.uiBurst = function (el, k = 1) {
+    if (!el || !el.getBoundingClientRect) return;
+    uiCanvas();
+    const r = el.getBoundingClientRect(), pal = UIPAL();
+    const n = Math.min(26, 6 + k * 2);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 120;
+      uiAdd({ x: r.left + r.width * (0.2 + Math.random() * 0.6), y: r.top + r.height / 2, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60, g: 380, life: 0.5 + Math.random() * 0.3, max: 0.8, s: Math.random() < 0.3 ? 3 : 2, c: pal[i % pal.length], kind: Math.random() < 0.25 ? 'plus' : 'px' });
+    }
+    if (k > 1) uiAdd({ x: r.left + r.width / 2, y: r.top - 4, vx: 0, vy: -34, g: 0, life: 0.9, max: 0.9, s: 1, c: colorOn() ? '#c48a00' : '#2b2b2b', kind: 'text', text: `×${k}` });
+  };
+  // a panel row lights up once
+  FX.rowFlash = function (el) { if (!el) return; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); };
+  // a roster tile: white pixel frame flash, a +n badge and three stars
+  FX.tileLevel = function (el, n, delay = 0) {
+    if (!el) return;
+    setTimeout(() => {
+      uiCanvas();
+      el.classList.remove('lvflash'); void el.offsetWidth; el.classList.add('lvflash');
+      const r = el.getBoundingClientRect(), pal = UIPAL();
+      uiAdd({ x: r.left + r.width / 2, y: r.top + 4, vx: 0, vy: -30, g: 0, life: 1, max: 1, s: 1, c: colorOn() ? '#c48a00' : '#2b2b2b', kind: 'text', text: `+${n}` });
+      for (let i = 0; i < 3; i++) uiAdd({ x: r.left + r.width / 2, y: r.top + r.height / 2, vx: (i - 1) * 50, vy: -80 - Math.random() * 40, g: 260, life: 0.7, max: 0.7, s: 2, c: pal[i], kind: 'star' });
+    }, delay);
+  };
+  // fly a currency icon from a point to the HUD row
+  FX.flyTo = function (fromX, fromY, toEl, color, n = 8) {
+    uiCanvas();
+    const r = toEl && toEl.getBoundingClientRect ? toEl.getBoundingClientRect() : { left: 40, top: 60, width: 10, height: 10 };
+    for (let i = 0; i < n; i++) uiAdd({ x: fromX + (Math.random() - 0.5) * 40, y: fromY + (Math.random() - 0.5) * 30, tx: r.left + 12, ty: r.top + r.height / 2, t: -i * 0.05, life: 1.2, max: 1.2, s: 4, c: color, kind: 'fly' });
+  };
+  FX.drawUI = function (dt) {
+    if (!uicv) return;
+    const g = uictx;
+    g.clearRect(0, 0, uicv.width, uicv.height);
+    for (let i = uip.length - 1; i >= 0; i--) {
+      const p = uip[i];
+      p.life -= dt;
+      if (p.life <= 0) { uip.splice(i, 1); continue; }
+      if (p.kind === 'fly') {
+        p.t += dt; if (p.t < 0) continue;
+        const k = T.easeInOut(Math.min(1, p.t / 0.8));
+        const x = T.lerp(p.x, p.tx, k), y = T.lerp(p.y, p.ty, k) - Math.sin(k * Math.PI) * 60;
+        g.globalAlpha = 1; g.fillStyle = p.c; g.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4); g.fillStyle = '#ffffff'; g.fillRect(Math.round(x) - 2, Math.round(y) - 2, 1, 1);
+        continue;
+      }
+      p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      const a = T.clamp(p.life / p.max, 0, 1);
+      g.globalAlpha = a;
+      g.fillStyle = p.c;
+      const x = Math.round(p.x), y = Math.round(p.y), s = p.s;
+      if (p.kind === 'text') { g.font = '11px Galmuri11, monospace'; g.textAlign = 'center'; g.fillText(p.text, x, y); }
+      else if (p.kind === 'plus' || p.kind === 'star') { g.fillRect(x - s, y, s * 3, s); g.fillRect(x, y - s, s, s * 3); }
+      else g.fillRect(x, y, s, s);
+    }
+    g.globalAlpha = 1;
   };
 
   // ── reset sequences ──────────────────────────────────────
@@ -433,9 +552,9 @@
         <div class="cr-sec"><small>함께 만든</small><b>Claude</b></div>
         <div class="cr-sec"><small>건축가</small><b>네모, 세모, 동그라미, 오각, 별, 육각</b></div>
         <div class="cr-sec"><small>채색</small><b>방울</b></div>
-        <div class="cr-sec"><small>쪼개기</small><b>끌</b></div>
-        <div class="cr-sec"><small>철거</small><b>망치</b></div>
-        <div class="cr-sec"><small>레이어 이동</small><b>워프</b></div>
+        <div class="cr-sec"><small>다듬기</small><b>톡톡</b></div>
+        <div class="cr-sec"><small>철거</small><b>쿵쿵</b></div>
+        <div class="cr-sec"><small>겹 건너기</small><b>폴짝</b></div>
         <div class="cr-sec"><small>마을 사람들</small><b>지금까지 태어나고 떠난 모든 주민</b></div>
         <div class="cr-sec"><small>글꼴</small><b>Galmuri by Quiple (SIL OFL 1.1)</b></div>
         <div class="cr-sec"><small>도면 선</small><b>Rough.js by Preet Shihn (MIT)</b></div>
@@ -453,10 +572,15 @@
     });
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('in'));
-    T.audio.reveal();
-    el.addEventListener('click', () => { el.classList.remove('in'); setTimeout(() => el.remove(), 700); });
+    T.audio.play('credits');
+    el.addEventListener('click', () => { el.classList.remove('in'); T.audio.play('close'); setTimeout(() => el.remove(), 700); });
   };
 
+  FX._pixelStage = (el) => pixelStage(el);
+  FX._blitShape = (...a) => blitShape(...a);
+  FX._sunrise = (el, gain) => sunrise(el, gain);
+  FX._colorReveal = (el, gain) => colorReveal(el, gain);
+  FX._anim = anim; FX._wait = wait;
   async function colorReveal(el, gain) {
     const veil = document.getElementById('veil');
     const cv = document.createElement('canvas');

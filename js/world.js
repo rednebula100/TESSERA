@@ -8,8 +8,12 @@
   const cam = (T.cam = { x: 0, y: 150, z: 2, tx: 0, ty: 150, tz: 2, W: 0, H: 0, dpr: 1 });
   // depth layers: farther = smaller, slower, lifted toward the horizon
   T.Z = 0;
-  T.layerK = (z = T.Z) => 1 - 0.13 * z;
-  const lift = (z) => z * 26;
+  // the depth plane the player is looking at (float while the camera dollies)
+  T.focus = 0;
+  T.view = () => Math.round(T.focus);
+  // depth relative to the plane being looked at: in front of it things grow and slide down past the camera
+  T.layerK = (z = T.Z) => 1 - 0.13 * (z - T.focus);
+  const lift = (z) => (z - T.focus) * 26;
   T.w2s = (wx, wy) => { const k = T.layerK(); return [(wx - cam.x) * cam.z * k + cam.W / 2, cam.H / 2 - ((wy - cam.y) * k + lift(T.Z)) * cam.z]; };
   T.s2w = (sx, sy) => { const k = T.layerK(); return [(sx - cam.W / 2) / (cam.z * k) + cam.x, ((cam.H / 2 - sy) / cam.z - lift(T.Z)) / k + cam.y]; };
 
@@ -133,6 +137,14 @@
   const shooting = [];
   // pixel sprites for sun and moon (drawn small, scaled up crisp)
   const pixCache = {};
+  // the new moon's disc used during an eclipse (slightly larger than the sun's body so totality is total)
+  function moonDisc() {
+    if (pixCache.mdisc) return pixCache.mdisc;
+    const cv = document.createElement('canvas'); cv.width = cv.height = 24;
+    const g = cv.getContext('2d');
+    for (let y = 0; y < 24; y++) for (let x = 0; x < 24; x++) { const d = Math.hypot(x - 11.5, y - 11.5); if (d >= 7.6) continue; g.fillStyle = d > 6.8 ? '#3a3e5a' : '#1e2134'; g.fillRect(x, y, 1, 1); }
+    return (pixCache.mdisc = cv);
+  }
   function sunSprite(eclipse) {
     const key = 'sun' + eclipse;
     if (pixCache[key]) return pixCache[key];
@@ -194,11 +206,13 @@
       const dusk = sky.dusk || 0;
       if (dusk > 0.01 && color) { const g = ctx.createLinearGradient(0, H * 0.3, 0, H); g.addColorStop(0, 'rgba(255,170,120,0)'); g.addColorStop(1, `rgba(255,150,110,${0.35 * dusk})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
       if (night > 0.01) { ctx.fillStyle = color ? `rgba(20,24,56,${0.84 * night})` : `rgba(26,26,30,${0.8 * night})`; ctx.fillRect(0, 0, W, H); }
-      if (sky.event === 'eclipse') { ctx.fillStyle = 'rgba(20,20,40,0.45)'; ctx.fillRect(0, 0, W, H); }
+      const ecl = sky.ecl || 0;
+      if (ecl > 0.01) { ctx.fillStyle = color ? `rgba(18,20,44,${0.78 * ecl * ecl})` : `rgba(22,22,26,${0.75 * ecl * ecl})`; ctx.fillRect(0, 0, W, H); }
       // stars
-      if (night > 0.05) {
+      const starN = Math.max(night, (sky.ecl || 0) > 0.6 ? (sky.ecl - 0.6) * 2 : 0);
+      if (starN > 0.05) {
         for (const s of stars) {
-          ctx.globalAlpha = night * (0.35 + 0.65 * Math.abs(Math.sin(t * 0.9 + s.ph)));
+          ctx.globalAlpha = starN * (0.35 + 0.65 * Math.abs(Math.sin(t * 0.9 + s.ph)));
           ctx.fillStyle = s.col;
           const x = Math.round(s.x * W), y = Math.round(s.y * H);
           ctx.fillRect(x, y, s.s, s.s);
@@ -229,14 +243,22 @@
       // sun and moon on an arc
       ctx.imageSmoothingEnabled = false;
       const arc = (p) => [W * (0.08 + 0.84 * p), H * (0.62 - Math.sin(p * Math.PI) * 0.48)];
-      if (sky.sunP >= 0 && sky.sunP <= 1) { const [x, y] = arc(sky.sunP); const sz = 72; ctx.drawImage(sunSprite(sky.event === 'eclipse'), x - sz / 2, y - sz / 2, sz, sz); if (sky.event === 'eclipse') { ctx.globalAlpha = 0.5 + Math.sin(t * 3) * 0.2; ctx.drawImage(glowSprite('rgba(255,250,220,1)'), x - 60, y - 60, 120, 120); ctx.globalAlpha = 1; } }
-      if (sky.moonP >= 0 && sky.moonP <= 1) { const [x, y] = arc(sky.moonP); const sz = 54; ctx.globalAlpha = Math.max(0.3, night); ctx.drawImage(glowSprite('rgba(230,235,255,1)'), x - 46, y - 46, 92, 92); ctx.drawImage(moonSprite(sky.phase), x - sz / 2, y - sz / 2, sz, sz); ctx.globalAlpha = 1; }
-    } else if (maxR > 60) {
-      const [cx, cy] = T.w2s(0, 60);
-      const r = Math.max(80, maxR * 1.1 * cam.z);
-      ctx.globalAlpha = T.clamp(maxR / 2500, 0.1, 0.5); ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(glowSprite(color ? 'rgba(255,248,232,0.9)' : 'rgba(255,255,255,0.9)'), cx - r, cy - r, r * 2, r * 2);
-      ctx.imageSmoothingEnabled = false; ctx.globalAlpha = 1;
+      if (sky.sunP >= 0 && sky.sunP <= 1) {
+        const [x, y] = arc(sky.sunP); const sz = 72;
+        if (ecl > 0.85) { // corona: a soft glow and pixel rays around the hidden sun
+          ctx.globalAlpha = (ecl - 0.85) / 0.15 * (0.7 + Math.sin(t * 2) * 0.15); ctx.imageSmoothingEnabled = true;
+          ctx.drawImage(glowSprite('rgba(255,250,225,1)'), x - 80, y - 80, 160, 160); ctx.imageSmoothingEnabled = false;
+          ctx.fillStyle = '#fff6d8';
+          for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2 + t * 0.15; const r0 = 30, r1 = 40 + ((i * 7) % 5) * 4; for (let r = r0; r < r1; r += 3) ctx.fillRect(Math.round(x + Math.cos(a) * r) - 1, Math.round(y + Math.sin(a) * r) - 1, 3, 3); }
+          ctx.globalAlpha = 1;
+        }
+        ctx.drawImage(sunSprite(false), x - sz / 2, y - sz / 2, sz, sz);
+        if (ecl > 0.001) { // the moon's dark disc slides in from the left and out to the right
+          const off = (1 - ecl) * sz * 0.95 * ((sky.eclK || 0) < 0.5 ? -1 : 1);
+          ctx.drawImage(moonDisc(), Math.round(x - sz / 2 + off), y - sz / 2, sz, sz);
+        }
+      }
+      if (sky.moonP >= 0 && sky.moonP <= 1 && !(sky.event === 'eclipse')) { const [x, y] = arc(sky.moonP); const sz = 54; ctx.globalAlpha = Math.max(0.3, night); ctx.drawImage(glowSprite('rgba(230,235,255,1)'), x - 46, y - 46, 92, 92); ctx.drawImage(moonSprite(sky.phase), x - sz / 2, y - sz / 2, sz, sz); ctx.globalAlpha = 1; }
     }
     // faint grid
     const step = B * 8, sp = step * cam.z;
@@ -257,18 +279,22 @@
   }
 
   // ── floor ────────────────────────────────────────────────
+  // settled ground is brown soil (paint and worn paths show on it); each era adds its own surface on top
   const FLOORS = {
     stone: { c: ['#b9b2a6', '#a39b8e', '#8b8376', '#776f63'], g: ['#a9a9a6', '#979794', '#858582', '#737371'] },
-    grass: { c: ['#8fc06a', '#a39b8e', '#8b8376', '#776f63'], g: ['#b0b0ad', '#979794', '#858582', '#737371'] },
-    path: { c: ['#86b862', '#a8987f', '#8b7c66', '#74675a'], g: ['#adadaa', '#999996', '#868683', '#727270'] },
-    cobble: { c: ['#7fb25d', '#9f9a92', '#878177', '#6f6a62'], g: ['#ababa8', '#979794', '#848481', '#70706e'] },
-    town: { c: ['#79ab58', '#a4a29c', '#8a877f', '#706d66'], g: ['#aaaaa7', '#989895', '#858582', '#71716f'] },
+    grass: { c: ['#a3825a', '#8f7050', '#7a5e42', '#664d36'], g: ['#b0b0ad', '#979794', '#858582', '#737371'], t: '#8fc06a' },
+    path: { c: ['#b09068', '#957553', '#7e6145', '#684f38'], g: ['#adadaa', '#999996', '#868683', '#727270'], t: '#86b862' },
+    cobble: { c: ['#a59c90', '#8f7152', '#795e44', '#654d37'], g: ['#ababa8', '#979794', '#848481', '#70706e'], t: '#7fb25d' },
+    town: { c: ['#aaa69e', '#8c6f51', '#775c43', '#634c36'], g: ['#aaaaa7', '#989895', '#858582', '#71716f'], t: '#79ab58' },
   };
+  // worn paths: where residents walk a lot the soil darkens
+  const wearMap = new Map();
+  function wear(x, z = 0, amt = 0.2) { const k = (z | 0) * 1e6 + Math.floor(x / 4); wearMap.set(k, Math.min(30, (wearMap.get(k) || 0) + amt)); }
   const paint = new Map();
-  function stain(x, col, amt = 1) {
+  function stain(x, col, amt = 1, z = 0) {
     const k = Math.floor(x / 4);
     for (let d = -1; d <= 1; d++) {
-      const e = paint.get(k + d) || { col, n: 0 };
+      const e = paint.get(k + d) || { col, n: 0, z };
       if (d === 0) e.col = col;
       e.n = Math.min(60, e.n + amt * (d === 0 ? 1 : 0.4));
       paint.set(k + d, e);
@@ -284,8 +310,19 @@
     const p = color ? f.c : f.g;
     ctx.fillStyle = p[1]; ctx.fillRect(0, top, W, H - top);
     const [wx0] = T.s2w(0, 0), [wx1] = T.s2w(W, 0);
-    if (z === 0 && paint.size && color) {
+    ctx.fillStyle = p[0]; ctx.fillRect(0, top, W, Math.max(1, Math.round((era >= 1 ? 3 : 2) * zz)));
+    if (era >= 1 && color && wearMap.size) {
+      ctx.fillStyle = p[2];
+      for (let x = Math.floor(wx0 / 4) * 4; x < wx1; x += 4) {
+        const w = wearMap.get((z | 0) * 1e6 + Math.floor(x / 4)); if (!w) continue;
+        const [sx] = T.w2s(x, 0);
+        ctx.globalAlpha = T.clamp(w / 30, 0.08, 0.55); ctx.fillRect(Math.floor(sx), top, Math.ceil(4 * zz) + 1, Math.max(1, Math.round(3 * zz)));
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (paint.size && color) {
       for (const [k, e] of paint) {
+        if ((e.z || 0) !== z) continue;
         const x = k * 4;
         if (x < wx0 - 8 || x > wx1 + 8) continue;
         const [sx] = T.w2s(x, 0);
@@ -294,13 +331,12 @@
         ctx.globalAlpha = 1;
       }
     }
-    ctx.fillStyle = p[0]; ctx.fillRect(0, top, W, Math.max(1, Math.round((era >= 1 ? 3 : 2) * zz)));
     if (zz >= 0.45) {
       const ps = Math.max(1, Math.round(zz * 2));
       for (let x = Math.floor(wx0 / 4) * 4; x < wx1; x += 4) {
         const hsh = Math.abs(Math.sin(x * 12.9898 + z * 7) * 43758.5453) % 1;
         const [sx] = T.w2s(x, 0);
-        if (era >= 1 && color && hsh < 0.22) { ctx.fillStyle = p[0]; ctx.fillRect(Math.round(sx), top - ps, ps, ps); }
+        if (era >= 1 && color && f.t && hsh < 0.22 && !(wearMap.get((z | 0) * 1e6 + Math.floor(x / 4)) > 6)) { ctx.fillStyle = f.t; ctx.fillRect(Math.round(sx), top - ps, ps, ps); if (hsh < 0.08) ctx.fillRect(Math.round(sx) + ps, top - ps * 2, ps, ps); }
         if (hsh < 0.3) { ctx.fillStyle = p[2]; ctx.fillRect(Math.round(sx), top + Math.round((3 + hsh * 20) * zz), ps, ps); }
         else if (hsh > 0.86) { ctx.fillStyle = p[0]; ctx.fillRect(Math.round(sx), top + Math.round((6 + hsh * 14) * zz), ps, ps); }
       }
@@ -311,5 +347,5 @@
     if (night > 0.01) { ctx.fillStyle = `rgba(14,16,40,${0.55 * night})`; ctx.fillRect(0, top, W, H - top); }
   }
 
-  T.world = { clear, clearRange, clearCell, drawBlock, drawCells, render, drawSky, drawFloor, fog, stain, paint, glowSprite, get maxR() { return maxR; }, CH };
+  T.world = { clear, clearRange, clearCell, drawBlock, drawCells, render, drawSky, drawFloor, fog, stain, wear, paint, glowSprite, get maxR() { return maxR; }, CH };
 })();
