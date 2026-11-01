@@ -141,10 +141,32 @@
         ctx.globalAlpha = 1;
       } else if (e.type === 'portal') {
         if (T.Z !== (e.z || 0)) continue;
-        const [px, py] = T.w2s(e.x, 10);
         const zz = z * T.layerK(e.z);
-        ctx.strokeStyle = `rgba(195,166,255,${1 - k})`; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.ellipse(px, py, (6 + k * 18) * zz, (14 + k * 10) * zz, 0, 0, Math.PI * 2); ctx.stroke();
+        const [px, py] = T.w2s(e.x, 11);
+        const open = k < 0.3 ? T.easeOut(k / 0.3) : k > 0.75 ? 1 - (k - 0.75) / 0.25 : 1;
+        const P = Math.max(1, Math.round(zz)); // one portal pixel
+        const rings = colorOn() ? ['#5e4b8b', '#8e7cc3', '#c3a6ff', '#efe6ff'] : ['#3a3a3a', '#6a6a68', '#9a9a97', '#e0e0de'];
+        const RX = 7, RY = 12;
+        for (let j = -RY; j <= RY; j++) {
+          if (Math.abs(j) > RY * open) continue; // unfold from the middle scanline
+          for (let i = -RX; i <= RX; i++) {
+            const q = (i * i) / (RX * RX) + (j * j) / (RY * RY);
+            if (q > 1) continue;
+            const ring = Math.min(3, Math.floor((1 - q) * 4 + Math.sin(e.t * 18 + j * 0.7) * 0.4));
+            if (ring === 3 && ((i + j + Math.floor(e.t * 20)) & 1)) continue; // dithered core
+            ctx.fillStyle = rings[Math.max(0, ring)];
+            ctx.fillRect(Math.round(px + i * P), Math.round(py + j * P), P, P);
+          }
+        }
+        // stars: spiral inward on the way in, scatter outward on the way out
+        ctx.fillStyle = colorOn() ? '#ffe08a' : '#ffffff';
+        for (let n = 0; n < 8; n++) {
+          const a = n * 0.785 + e.t * (e.dir === 'in' ? 7 : -5);
+          const r = (e.dir === 'in' ? (1 - k) * 22 + 3 : k * 24 + 3) * zz;
+          ctx.globalAlpha = 1 - k * 0.6;
+          ctx.fillRect(Math.round(px + Math.cos(a) * r) - P, Math.round(py + Math.sin(a) * r * 0.8), P * 2, P); ctx.fillRect(Math.round(px + Math.cos(a) * r) - P / 2, Math.round(py + Math.sin(a) * r * 0.8) - P / 2, P, P * 2);
+        }
+        ctx.globalAlpha = 1;
       } else if (e.type === 'ring') {
         const [px, py] = T.w2s(e.x, e.y);
         const r = Math.round((4 + k * 7) * z);
@@ -196,6 +218,11 @@
     T.audio.complete();
     setTimeout(() => T.ui.stamp(def, reward, (T.G.s.bps.done[def.id] || 0) <= 1), 500);
   };
+  // a newcomer arrives: a little pixel smoke ring
+  FX.poof = function (x, y) {
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; add({ x: x + Math.cos(a) * 6, y: y + Math.sin(a) * 6, vx: Math.cos(a) * 40, vy: Math.sin(a) * 40 + 10, g: 0, life: 0.6, max: 0.6, kind: 'puff', color: colorOn() ? '#f4ead6' : '#e4e4e2', size: 3 }); }
+    for (let i = 0; i < 5; i++) add({ x, y, vx: (Math.random() - 0.5) * 60, vy: 40 + Math.random() * 40, g: 60, life: 0.7, max: 0.7, kind: 'spark', color: colorOn() ? '#ffd166' : '#ffffff', size: 1.3 });
+  };
   // a cell snaps into place: a tiny pixel ring
   FX.snapRing = function (x, y) {
     effects.push({ type: 'ring', x, y, t: 0, dur: 0.32, z: T.view() });
@@ -225,9 +252,9 @@
     if (T.cam.z < 0.35) return;
     for (let i = 0; i < 3; i++) add({ x: x + (Math.random() - 0.5) * 6, y: y + (Math.random() - 0.5) * 6, vx: (Math.random() - 0.5) * 90, vy: 30 + Math.random() * 70, g: 300, life: 0.5, max: 0.5, kind: 'px', color: Math.random() < 0.5 ? '#ffffff' : col, size: 1 });
   };
-  FX.portal = function (x, z) {
-    effects.push({ type: 'portal', x, z, t: 0, dur: 0.9 });
-    if (z === 0) for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2; add({ x: x + Math.cos(a) * 10, y: 10 + Math.sin(a) * 10, vx: -Math.cos(a) * 30, vy: -Math.sin(a) * 30 + 20, g: 0, life: 0.7, max: 0.7, kind: 'spark', color: '#c3a6ff', size: 1.2 }); }
+  // pixel portal: dithered purple ovals unfold from a scanline; stars spiral in ('in') or burst out ('out')
+  FX.portal = function (x, z, dir = 'in') {
+    effects.push({ type: 'portal', x, z, dir, t: 0, dur: dir === 'in' ? 0.75 : 0.65 });
   };
   FX.layerOpen = function () { effects.push({ type: 'layer', t: 0, dur: 1.6 }); };
   FX.banner = function (title, sub) {
@@ -549,6 +576,11 @@
     el.addEventListener('click', () => { el.classList.remove('in'); setTimeout(() => el.remove(), 700); });
   };
 
+  FX._pixelStage = (el) => pixelStage(el);
+  FX._blitShape = (...a) => blitShape(...a);
+  FX._sunrise = (el, gain) => sunrise(el, gain);
+  FX._colorReveal = (el, gain) => colorReveal(el, gain);
+  FX._anim = anim; FX._wait = wait;
   async function colorReveal(el, gain) {
     const veil = document.getElementById('veil');
     const cv = document.createElement('canvas');

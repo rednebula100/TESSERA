@@ -36,7 +36,7 @@
     const e = base('arch', d);
     if (d.life === undefined) d.life = T.vil.maxLife();
     archs.push(e);
-    if (!silent) { e.x = T.clamp(T.cam.x + (Math.random() - 0.5) * Math.min(300, (T.cam.W / T.cam.z) * 0.4), -6000, 6000); e.y = 240 + Math.random() * 60; e.vy = -40; e.surpriseT = 1.2; e.t = 1.2; }
+    if (!silent) { e.x = T.clamp(T.cam.x + (Math.random() - 0.5) * Math.min(300, (T.cam.W / T.cam.z) * 0.4), -6000, 6000); e.y = 240 + Math.random() * 60; e.vy = -40; e.surpriseT = 1.2; e.t = 1.2; d.z = T.view(); T.fx.poof(e.x, e.y + 8); e.bubble = { text: ['안녕!', '반가워', '왔어요!', '일할게요'][Math.floor(Math.random() * 4)], t: 1.8 }; }
     return e;
   }
   function spawnWorker(d) { const e = base('worker', d); if (d.life === undefined) d.life = T.vil.maxLife(); workers.push(e); return e; }
@@ -227,6 +227,7 @@
     const step = T.G.walkSpeed() * mult * dt * (e.kind === 'kid' ? 1.15 : 1);
     if (Math.abs(dx) <= step) { e.x = x; return true; }
     e.x += Math.sign(dx) * step;
+    if (S().era >= 1 && Math.random() < dt * 3) T.world.wear(e.x, zOf(e), 0.15);
     e.walking = true;
     if (Math.random() < dt * 0.6 && T.cam.z > 0.6 && zOf(e) === 0) T.fx.dust(e.x - e.dir * 6, 0, 1);
     return false;
@@ -419,7 +420,7 @@
   }
   function updatePainter(e, dt) {
     const cd = T.G.paintCD();
-    if (e.walking || Math.random() < dt * 4) T.world.stain(e.x, e.col, e.walking ? 0.35 : 0.1);
+    if (e.walking || Math.random() < dt * 4) T.world.stain(e.x, e.col, e.walking ? 0.35 : 0.1, zOf(e));
     refiner(e, dt, (en) => nearestDone(en, (st) => T.st.nextPaint(st) >= 0), Math.max(0.05, cd), (en, st) => {
       let i = T.st.nextPaint(st);
       if (i < 0) { en.happyT = 2; if (Math.random() < 0.5) en.bubble = { text: '알록달록!', t: 1.4 }; return -1; }
@@ -470,18 +471,38 @@
       e.d.z = from;
     }
     const tg = e.target;
+    if (e.warp) { stepWarp(e, dt); return; }
     if (!all().includes(tg) || tg.inside || tg.proj) { e.target = null; e.t = 3; return; }
     if (!walkToward(e, tg.x - e.dir * 10, dt, 1.4)) return;
-    T.fx.portal(e.x, zOf(e));
-    tg.d.z = e.toZ; e.d.z = e.toZ;
-    tg.d.home = 0;
-    const land = (Math.random() - 0.5) * 200;
-    tg.x = land; e.x = land + 14;
-    tg.vy = 120; e.vy = 120; tg.surpriseT = 1;
-    T.fx.portal(land, e.toZ);
-    T.audio.warp();
-    e.target = null; e.t = 8;
-    if (e.toZ === 0) e.d.z = 0;
+    // open a portal, both get pulled in, and pop out of the other layer
+    e.warp = { t: 0, from: zOf(e), to: e.toZ, land: (Math.random() - 0.5) * 200, done: false };
+    T.fx.portal(e.x + e.dir * 5, zOf(e), 'in');
+    T.audio.play('warpIn', { x: e.x });
+  }
+  function stepWarp(e, dt) {
+    const w = e.warp, tg = e.target;
+    w.t += dt;
+    const IN = 0.42, OUT = 0.45;
+    if (w.t < IN) {
+      const k = w.t / IN;
+      e.warpScale = 1 - k * k; if (tg) tg.warpScale = 1 - k * k;
+      return;
+    }
+    if (!w.done) {
+      w.done = true;
+      if (tg && all().includes(tg)) { tg.d.z = w.to; tg.d.home = 0; tg.x = w.land; tg.surpriseT = 1.2; }
+      e.d.z = w.to; e.x = w.land + 14;
+      T.fx.portal(w.land + 7, w.to, 'out');
+      T.audio.play('warpOut', { x: w.land });
+    }
+    const k = T.clamp((w.t - IN) / OUT, 0, 1);
+    const s = T.easeOutBack ? T.easeOutBack(k) : k;
+    e.warpScale = s; if (tg) tg.warpScale = s;
+    if (k >= 1) {
+      e.warpScale = undefined; if (tg) tg.warpScale = undefined;
+      if (tg) { tg.vy = 60; }
+      e.warp = null; e.target = null; e.t = 8;
+    }
   }
 
   // ── update all ───────────────────────────────────────────
@@ -530,12 +551,26 @@
     if (e.y > 2) { const [gx, gy] = T.w2s(e.x, 0); const k = T.clamp(1 - e.y / 300, 0.2, 1); ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(gx - 7 * ps * k, gy - ps, 14 * ps * k, ps); }
     if (e.light) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 + Math.sin(e.phase * 4) * 0.1; ctx.drawImage(T.world.glowSprite('rgba(255,236,150,1)'), sx - 16 * ps, sy - 24 * ps, 32 * ps, 32 * ps); ctx.restore(); }
     const napY = e.napping ? 3 * ps : 0;
-    T.sprites.draw(ctx, kind, color, { sx, sy: sy - bob + napY, ps, face, look: e.look, legs, hat, sq: e.napping ? 0.25 : e.sq, dangle: e.held });
+    const wps = e.warpScale !== undefined ? ps * Math.max(0.02, e.warpScale) : ps;
+    if (e.warpScale !== undefined && e.warpScale < 0.05) return;
+    T.sprites.draw(ctx, kind, color, { sx, sy: sy - bob + napY, ps: wps, face: e.warpScale !== undefined ? 'surprise' : face, look: e.look, legs, hat, sq: e.napping ? 0.25 : e.sq, dangle: e.held });
+    if (e.warpScale !== undefined) return;
     const tool = (c1, c2, len) => { const bx = sx + e.dir * 8 * ps, by = sy - 10 * ps - bob; const up = e.t < 0.15 ? -1 : 1; ctx.fillStyle = c1; ctx.fillRect(bx, by - len * ps * up, ps, len * ps); ctx.fillStyle = c2; ctx.fillRect(bx - ps * 0.5, by - (len + 2) * ps * up, ps * 2, ps * 2.5); };
     if (kind === 'drop') tool(color ? '#8d6748' : '#555', color ? e.col : '#999', 7);
     if (kind === 'demo') tool(color ? '#8d6748' : '#555', color ? '#6b7280' : '#444', 6);
     if (kind === 'chisel') tool(color ? '#6b7280' : '#555', color ? '#cfd6de' : '#aaa', 5);
-    if (kind === 'portal' && ps > 1) { ctx.strokeStyle = color ? 'rgba(179,157,219,0.8)' : 'rgba(120,120,120,0.6)'; ctx.lineWidth = Math.max(1, ps * 0.6); ctx.beginPath(); ctx.ellipse(sx, sy - 9 * ps, 11 * ps + Math.sin(e.phase * 3) * ps, 4 * ps, 0, 0, Math.PI * 2); ctx.stroke(); }
+    if (kind === 'portal' && ps > 0.8) { // two pixel motes circling the head, in front and behind
+      for (let i = 0; i < 2; i++) {
+        const a = e.phase * 2.4 + i * Math.PI;
+        const mx = Math.round(sx + Math.cos(a) * 9 * ps), my = Math.round(sy - 17 * ps - bob + Math.sin(a) * 2.5 * ps);
+        const front = Math.sin(a) > 0, m = Math.max(1, Math.round(ps * 1.3));
+        ctx.globalAlpha = front ? 1 : 0.45;
+        ctx.fillStyle = color ? (i ? '#c3a6ff' : '#ffe08a') : (i ? '#9a9a97' : '#d8d8d5');
+        ctx.fillRect(mx - m / 2, my - m / 2, m, m);
+        if (front) { ctx.fillStyle = '#ffffff'; ctx.fillRect(mx - m / 2, my - m / 2, Math.max(1, m / 2), Math.max(1, m / 2)); }
+      }
+      ctx.globalAlpha = 1;
+    }
     if (e.kind === 'worker' && ps > 1) { ctx.fillStyle = color ? '#f4efe6' : '#ddd'; ctx.fillRect(sx - 3 * ps, sy - 6 * ps - bob, 6 * ps, 3 * ps); }
     if (e.napping && ps > 1 && Math.sin(e.phase * 2) > 0) { ctx.fillStyle = color ? '#8ecae6' : '#888'; ctx.font = `${Math.round(8 * T.cam.z)}px Galmuri9, monospace`; ctx.fillText('z', sx + 8 * ps, sy - 18 * ps - Math.sin(e.phase) * 3); }
     if (e.mournT > 0 && ps > 1 && Math.random() < 0.06) T.fx.tear(e.x + e.dir * 3, e.y + 12);

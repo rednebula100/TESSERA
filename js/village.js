@@ -41,6 +41,9 @@
       sunP: f < 0.74 ? f / 0.74 : -1, moonP: f >= 0.66 ? (f - 0.66) / 0.34 : -1,
       dusk: T.clamp(1 - Math.abs(f - 0.7) / 0.06, 0, 1) + T.clamp(1 - Math.min(f, 1 - f) / 0.04, 0, 1),
       event: s.event && s.event.t > 0 ? s.event.type : null,
+      // eclipse: the moon slides over the sun (0→1), stays (totality), slides off
+      ecl: s.event && s.event.t > 0 && s.event.type === 'eclipse' ? (() => { const k = 1 - s.event.t / (s.event.dur || 40); return k < 0.3 ? k / 0.3 : k < 0.7 ? 1 : (1 - k) / 0.3; })() : 0,
+      eclK: s.event && s.event.type === 'eclipse' ? 1 - s.event.t / (s.event.dur || 40) : 0,
     };
   };
   let lastDay = 0, lastNightFlag = false;
@@ -49,12 +52,13 @@
     if (s.era < 1) return;
     if (s.event && s.event.t > 0) { s.event.t -= dt; if (s.event.t <= 0) { s.event = null; T.ui.toast('하늘이 다시 평소로 돌아왔습니다.'); T.G.computeMult(); } }
     const d = V.day(), n = V.isNight();
-    if (d !== lastDay) { if (lastDay && !s.event && Math.random() < 0.05) startEvent('eclipse', 40); lastDay = d; s.day = d; }
+    if (d !== lastDay) { lastDay = d; s.day = d; s.eclipseAt = Math.random() < 0.05 ? 0.25 + Math.random() * 0.2 : -1; }
+    if (s.eclipseAt > 0 && V.dayFrac() >= s.eclipseAt && !s.event) { s.eclipseAt = -1; startEvent('eclipse', 40); }
     if (n && !lastNightFlag && !s.event && Math.random() < 0.07) startEvent('aurora', DAY * 0.25);
     lastNightFlag = n;
   };
   function startEvent(type, dur) {
-    S().event = { type, t: dur };
+    S().event = { type, t: dur, dur };
     T.G.computeMult();
     T.fx.banner(type === 'aurora' ? '오로라' : '일식', type === 'aurora' ? '하늘이 춤춥니다. 잠시 동안 조각 ×3, 쿨타임 감소' : '해가 숨었습니다. 잠시 동안 조각 ×3, 쿨타임 감소');
     T.audio.reveal();

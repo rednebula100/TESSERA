@@ -23,7 +23,8 @@
   }
   function updateHud() {
     const s = S();
-    $('#v-shards').textContent = fmt(s.shards);
+    const sv = fmt(s.shards), se = $('#v-shards');
+    if (se.textContent !== sv) { se.textContent = sv; const now = performance.now(); if (now - (UI._tk || 0) > 220) { UI._tk = now; se.classList.remove('tick'); void se.offsetWidth; se.classList.add('tick'); } }
     $('#v-rate').textContent = fmt(T.G.rate);
     const show = { vertices: s.flags.l1Done, grains: s.flags.l2Done, prisms: s.flags.l3Done, pigments: s.flags.l4Done, folds: s.flags.l5Done, lanterns: s.flags.l6Done, goods: s.ms >= 18 };
     for (const k in show) { $('#v-' + k).textContent = fmt(s[k]); $(`[data-c=${k}]`).classList.toggle('show', !!show[k]); }
