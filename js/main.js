@@ -148,7 +148,10 @@
     if (e.button === 2 || e.button === 1) { rdown = { sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, wx, button: e.button }; return; }
     if (T.st.placing) { down = { placing: true }; return; }
     if (T.vil.zoneTool && wy < 40) { T.vil.zoneDrag = [wx, wx]; down = { zone: true }; return; }
-    down = { sx: e.clientX, sy: e.clientY, moved: false, ent: T.ent.pick(wx, wy), held: false };
+    // an empty cell under the cursor wins over a builder standing in front of it (the highlight shows it)
+    const ast = T.st.at(wx, wy, T.view(), true);
+    const onCell = ast && !ast.clearing && M.cellAt(ast, wx, wy) >= 0;
+    down = { sx: e.clientX, sy: e.clientY, moved: false, ent: onCell ? null : T.ent.pick(wx, wy), held: false };
   });
   cv.addEventListener('pointermove', (e) => {
     if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, [e.clientX, e.clientY]);
@@ -165,7 +168,8 @@
     }
     if (down && down.zone) { T.vil.zoneDrag[1] = wx; return; }
     if (!down || down.placing) {
-      const h = T.ent.pick(wx, wy);
+      const hst = T.st.at(wx, wy, T.view(), true);
+      const h = hst && !hst.clearing && M.cellAt(hst, wx, wy) >= 0 ? null : T.ent.pick(wx, wy);
       T.ent.hover = h;
       const st = !h && T.st.hit(wx, wy, T.view());
       cv.style.cursor = T.st.placing ? 'copy' : T.vil.zoneTool ? 'ew-resize' : h ? 'grab' : st ? (T.st.done(st) ? 'help' : 'cell') : 'crosshair';

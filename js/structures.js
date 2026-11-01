@@ -613,7 +613,9 @@
     for (let y = 0; y < H; y += 10) { ctx.fillStyle = y % 50 === 0 ? (color ? 'rgba(232,241,250,0.22)' : 'rgba(0,0,0,0.11)') : color ? 'rgba(232,241,250,0.1)' : 'rgba(0,0,0,0.05)'; ctx.fillRect(0, y, W, 1); }
     const margin = 52;
     const rows = sh.h + sh.sink;
-    const cs = Math.max(2, Math.floor(Math.min((W - margin * 2) / sh.w, (H - margin * 2) / rows) / 8) * 8) || Math.min((W - margin * 2) / sh.w, (H - margin * 2) / rows);
+    // whole multiples of 8 when there is room (crisp sub-pixels), otherwise as large as fits (big wonders)
+    const fit = Math.min((W - margin * 2) / sh.w, (H - margin * 2) / rows);
+    const cs = fit >= 8 ? Math.floor(fit / 8) * 8 : Math.max(1, Math.floor(fit));
     const ox = Math.round((W - cs * sh.w) / 2), groundY = Math.round((H - cs * rows) / 2) + cs * sh.h - 4;
     if (locked) ctx.globalAlpha = 0.35;
     // the actual pixel art, in ink colour, at the best resolution available

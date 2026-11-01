@@ -886,3 +886,6 @@ body:not(.color) .acc-split { background: #8d8d8a; } body:not(.color) .acc-paint
 
 .seal.bounce { animation: sealBounce .5s steps(5); }
 @keyframes sealBounce { 30% { transform: translateY(-5px); } 60% { transform: translateY(1px); } }
+/* guide cards stay under modals (the modal backdrop covers them) */
+.tut { z-index: 45; }
+#ghl { z-index: 44; }
