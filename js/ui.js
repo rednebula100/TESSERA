@@ -10,7 +10,7 @@
   const S = () => T.G.s;
   const CUR = {
     shards: { name: '조각', ic: 'shard' }, vertices: { name: '꼭짓점', ic: 'vertex' }, grains: { name: '결', ic: 'grain' }, prisms: { name: '프리즘', ic: 'prism' },
-    pigments: { name: '안료', ic: 'pigment' }, folds: { name: '겹', ic: 'fold' }, lanterns: { name: '등불', ic: 'lantern' }, goods: { name: '물자', ic: 'goods' },
+    pigments: { name: '안료', ic: 'pigment' }, folds: { name: '안개', ic: 'fold' }, lanterns: { name: '등불', ic: 'lantern' }, goods: { name: '물자', ic: 'goods' },
   };
   const ic = (k) => `<i class="ic ic-${k}"></i>`;
 
@@ -48,7 +48,7 @@
     }
     return el;
   }
-  const SEEN_LINE = ['', '지평선 너머, 무언가가 모습을 드러냅니다.', '어디선가 끌 소리가 들립니다.', '빛이 모서리에 걸려 흔들립니다.', '어디선가 물감 냄새가 납니다.', '세상 뒤에 또 다른 세상이 겹쳐 보입니다.', '멀리서 굴뚝 연기가 피어오릅니다.'];
+  const SEEN_LINE = ['', '지평선 너머, 무언가가 모습을 드러냅니다.', '어디선가 톡톡, 돌 다듬는 소리가 들립니다.', '빛이 모서리에 걸려 흔들립니다.', '어디선가 물감 냄새가 납니다.', '세상 뒤에 또 다른 세상이 겹쳐 보입니다.', '멀리서 굴뚝 연기가 피어오릅니다.'];
   function updateSeals() {
     const s = S(), box = $('#seals'), want = new Set();
     for (let n = 1; n <= 6; n++) {
@@ -73,15 +73,15 @@
   }
   function confirmReset(n) {
     const s = S(), L = T.G.L[n], ready = T.G.canReset(n), settled = s.era >= 1;
-    const lose = ['', '조각, 작업장' + (settled ? ', 건축가 레벨' : ', 건축가, 세계의 모든 블럭과 건축물'), '위의 모든 것과 꼭짓점, 공방', '위의 모든 것과 결, 석공소', '위의 모든 것과 프리즘, 실험실', '위의 모든 것과 안료, 아틀리에', '위의 모든 것과 겹, 층계 일부, <b>마을 전체</b>'][n];
-    const keep = ['', '이정표, 도감, 공방' + (settled ? ', 마을과 주민' : ''), '이정표, 도감, 석공소, <b>해상도</b>', '이정표, 도감, 실험실, 해상도, <b>색</b>', '이정표, 도감, 아틀리에, 방울', '이정표, 도감, 층계, 레이어', '이정표, 도감, 등불 회관, 레이어, 시대, 구역'][n];
-    const flavor = ['', '모든 블럭을 허물고 그 모서리만 남깁니다. 남은 모서리는 <b>꼭짓점</b>이 됩니다.',
-      '블럭 하나를 더 작은 조각으로 쪼갤 수 있다면? 끌 주민이 찾아와 <b>결</b>을 따라 블럭을 쪼갭니다.',
+    const lose = ['', '조각, 작업장' + (settled ? ', 건축가 레벨' : ', 건축가, 세계의 모든 블록과 건축물'), '위의 모든 것과 꼭짓점, 공방', '위의 모든 것과 결, 석공소', '위의 모든 것과 프리즘, 실험실', '위의 모든 것과 안료, 아틀리에', '위의 모든 것과 안개, 층계 일부, <b>마을 전체</b>'][n];
+    const keep = ['', '이정표, 도감, 공방' + (settled ? ', 마을과 주민' : ''), '이정표, 도감, 석공소, <b>해상도</b>', '이정표, 도감, 실험실, 해상도, <b>색</b>', '이정표, 도감, 아틀리에, 방울', '이정표, 도감, 층계, 겹', '이정표, 도감, 등불 회관, 겹, 시대, 구역'][n];
+    const flavor = ['', '모든 블록을 허물고 그 모서리만 남깁니다. 남은 모서리는 <b>꼭짓점</b>이 됩니다.',
+      '블록 하나를 더 고운 조각으로 다듬을 수 있다면? 톡톡 주민이 찾아와 <b>결</b>을 따라 블록을 다듬습니다.',
       s.flags.color ? '쌓아 올린 빛을 다시 프리즘에 통과시킵니다.' : '이 세계는 아직 회색입니다. 결을 모아 빛을 굴절시키면 무언가 달라질지도 모릅니다.',
-      '세계를 한 번 씻어내고, 그 물로 물감을 만듭니다. 방울 주민이 쪼개진 칸을 하나하나 칠합니다.',
-      '세상 뒤에 세상을 겹칩니다. 앞뒤로 <b>레이어</b>가 생기고, 워프 주민이 주민들을 데려갑니다.',
+      '세계를 한 번 씻어내고, 그 물로 물감을 만듭니다. 방울 주민이 다듬어진 칸을 하나하나 칠합니다.',
+      '세상 뒤에 세상을 겹칩니다. 앞뒤로 <b>겹</b>이 생기고, 폴짝 주민이 주민들을 데려갑니다. 겹 사이에 깔린 <b>안개</b>를 모읍니다.',
       s.flags.l6Done ? '마을을 정리하고 새로운 땅에 다시 정착합니다.' : '흩어진 조형물을 뒤로하고, 처음으로 <b>지붕</b>을 얹습니다. 건축가들은 이제 마을을 이루어 삽니다.'][n];
-    modal(`<div class="m-head"><span class="m-kicker">${n}차 리셋 레이어</span><h2>${ic(L.icon)} ${L.name}</h2></div><p class="m-flavor">${flavor}</p>
+    modal(`<div class="m-head"><span class="m-kicker">${n}번째 리셋</span><h2>${ic(L.icon)} ${L.name}</h2></div><p class="m-flavor">${flavor}</p>
       <div class="m-grid"><div><h4>초기화</h4><p>${lose}</p></div><div><h4>유지</h4><p>${keep}</p></div></div>
       <div class="m-gain">${ready ? `획득: ${ic(L.icon)} <b>${fmt(L.gain(s))}</b> ${L.cur}` : `조건: ${L.needText} <b>${fmt(L.need)}</b> (현재 ${fmt(L.prog(s))})`}</div>
       <div class="m-actions"><button class="btn ghost" data-close>돌아가기</button><button class="btn primary" id="do-reset" ${ready ? '' : 'disabled'}>${L.name}하기</button></div>`, 'm-reset');
@@ -164,7 +164,7 @@
     });
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) btn.addEventListener(ev, stop);
   }
-  function costBtn(costFn, curKey, onBuy, label = '') {
+  function costBtn(costFn, curKey, onBuy, label = '', maxText = '최대') {
     const b = T.h(`<button class="buy"><span class="buy-l">${label}</span><span class="buy-c">${ic(CUR[curKey].ic)}<b></b></span></button>`);
     holdable(b, (quiet) => {
       if (onBuy()) { if (!quiet) T.audio.buy(); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); updateBinds(); return true; }
@@ -172,7 +172,7 @@
     });
     bind(b, () => {
       const c = costFn();
-      if (c === null) { b.classList.add('maxed'); b.disabled = true; b.querySelector('b').textContent = '최대'; return; }
+      if (c === null) { b.classList.add('maxed'); b.disabled = true; b.querySelector('b').textContent = maxText; return; }
       b.classList.remove('maxed');
       b.querySelector('b').textContent = fmt(c);
       b.disabled = !(S()[curKey] >= c);
@@ -182,7 +182,10 @@
 
   function tabArch(body) {
     const s = S();
-    body.appendChild(T.h(`<p class="tab-intro">건축가는 저마다 조형물을 짓습니다. 혼자 멀리 떠나기도 하고, 친구의 일을 돕기도 합니다. 한 명 한 명이 소중해서 많이 고용하기는 어렵습니다.</p>`));
+    body.appendChild(T.h(`<p class="tab-intro">건축가는 저마다 조형물을 짓습니다. 혼자 멀리 떠나기도 하고, 친구의 일을 돕기도 합니다. 세계에는 <b>자리</b>가 정해져 있어서 한 명 한 명이 소중합니다.</p>`));
+    const capBox = T.h(`<div class="capbox" data-tip="<b>자리</b><br>함께 지낼 수 있는 건축가 수입니다. 이정표를 세우면 늘어나고, 정착한 뒤에는 집 정원만큼 늘어납니다."><span class="cap-l">자리</span><span class="cap-pips"></span><b class="cap-n"></b></div>`);
+    bind(capBox, () => { const n = s.archs.length, c = T.G.archCap(); capBox.querySelector('.cap-n').textContent = `${n}/${c}`; const pips = capBox.querySelector('.cap-pips'); if (pips.childElementCount !== c) { pips.innerHTML = ''; for (let i = 0; i < Math.min(c, 40); i++) pips.appendChild(T.h('<i></i>')); } [...pips.children].forEach((p, i) => p.classList.toggle('on', i < n)); capBox.classList.toggle('full', n >= c); });
+    body.appendChild(capBox);
     let shownLocked = false;
     for (const sh of T.SHAPES) {
       if (!T.G.shapeUnlocked(sh.id)) {
@@ -194,8 +197,9 @@
       }
       const row = T.h(`<div class="row"><div class="pt"></div><div class="row-main"><div class="row-name">${sh.name} 건축가 <small class="own"></small></div><div class="row-desc"></div></div></div>`);
       row.querySelector('.pt').appendChild(T.sprites.portrait(sh.id, s.flags.color, 3, 'normal'));
-      row.appendChild(costBtn(() => T.G.hireCost(sh.id), 'shards', () => T.G.hire(sh.id), '고용'));
-      bind(row, () => { const n = T.G.owned(sh.id); row.querySelector('.own').textContent = n ? `${n}명` : ''; row.querySelector('.row-desc').innerHTML = `블럭 ${ic('shard')}${fmt((sh.value + T.G.lv(s.up, 'solid')) * T.G.M)}  ${T.G.cooldown({ s: sh.id }).toFixed(1)}초`; });
+      const hb = costBtn(() => (T.G.capFull() ? null : T.G.hireCost(sh.id)), 'shards', () => T.G.hire(sh.id), '고용', '자리 없음');
+      row.appendChild(hb);
+      bind(row, () => { const n = T.G.owned(sh.id); row.querySelector('.own').textContent = n ? `${n}명` : ''; row.querySelector('.row-desc').innerHTML = `블록 ${ic('shard')}${fmt((sh.value + T.G.lv(s.up, 'solid')) * T.G.M)}  ${T.G.cooldown({ s: sh.id }).toFixed(1)}초`; });
       body.appendChild(row);
     }
     if (!s.flags.l1Done) body.appendChild(T.h(`<p class="tab-note">다른 모양의 건축가는 「재구성」 너머에서 기다립니다.</p>`));
@@ -303,14 +307,14 @@
   }
   function resCard(body) {
     const s = S();
-    const c = T.h(`<div class="res-card"><div class="res-title"><span>해상도</span><b id="res-now"></b></div><div class="res-steps"></div><p class="res-desc">블럭 한 칸을 몇 조각으로 쪼갤 수 있는지 정합니다. 쪼갤수록 건축물의 진짜 모습이 드러나고, 방울이 칠할 칸도 세밀해집니다. 한 번 올린 해상도는 어떤 리셋에도 남습니다.</p></div>`);
+    const c = T.h(`<div class="res-card"><div class="res-title"><span>해상도</span><b id="res-now"></b></div><div class="res-steps"></div><p class="res-desc">블록 한 칸을 몇 조각으로 다듬을 수 있는지 정합니다. 쪼갤수록 건축물의 진짜 모습이 드러나고, 방울이 칠할 칸도 세밀해집니다. 한 번 올린 해상도는 어떤 리셋에도 남습니다.</p></div>`);
     const steps = c.querySelector('.res-steps');
     T.RES.forEach((r, i) => {
       const st = T.h(`<div class="res-step" data-i="${i}"><div class="res-grid" style="--n:${r}">${'<i></i>'.repeat(r * r)}</div><small>${T.RES_NAME[i]}</small><em>${r}×${r}</em></div>`);
       steps.appendChild(st);
     });
     const btn = T.h(`<button class="btn primary wide res-buy"></button>`);
-    btn.addEventListener('click', () => { if (T.G.buyRes()) { T.audio.unlock(); T.fx.flash(); UI.toast(`해상도 ${T.RES_NAME[s.resLv]}! 끌 주민들이 더 잘게 쪼갤 수 있습니다.`, 'big'); UI.rebuildPanel(); } else T.audio.deny(); });
+    btn.addEventListener('click', () => { if (T.G.buyRes()) { T.audio.unlock(); T.fx.flash(); UI.toast(`해상도 ${T.RES_NAME[s.resLv]}! 톡톡 주민들이 더 곱게 다듬을 수 있습니다.`, 'big'); UI.rebuildPanel(); } else T.audio.deny(); });
     c.appendChild(btn);
     bind(c, () => {
       c.querySelector('#res-now').textContent = T.RES_NAME[s.resLv];
@@ -327,11 +331,11 @@
     const s = S();
     const meta = [
       ['작업장', 'shard', '작은 손들을 위한 작은 개선. 이번 회차에만 유지됩니다. 버튼을 꾹 누르면 점점 빠르게 연속으로 삽니다.', null],
-      ['꼭짓점 공방', 'vertex', '허문 블럭의 모서리를 모아 둔 공방. 재구성해도 사라지지 않습니다.', () => `보유 꼭짓점 효과: 조각 ×<b>${fmt(Math.sqrt(1 + s.vertices))}</b>`],
-      ['석공소', 'grain', '블럭을 결대로 쪼개는 석공들의 작업장. 쪼개기를 다시 해도 유지됩니다.', () => `쪼갠 정도 ${(avgSplit() * 100).toFixed(1)}%  보유 결 효과: 조각 ×<b>${fmt(Math.pow(1 + s.grains, 0.5))}</b>`],
-      ['프리즘 실험실', 'prism', '빛을 쪼개고 다시 모으는 실험실. 굴절해도 유지됩니다.', () => `보유 프리즘 효과: 조각 ×<b>${fmt(Math.pow(1 + s.prisms, 0.6))}</b>`],
-      ['아틀리에', 'pigment', '방울 주민들이 쪼개진 칸을 하나하나 칠합니다. 걸어 다닌 땅에도 물감이 스며듭니다.', () => `채색 ${(T.G.coverage() * 100).toFixed(1)}% → 조각 ×${(1 + 2 * T.G.coverage()).toFixed(2)}`],
-      ['층계', 'fold', '세상 뒤에 세상을 겹치는 층계. 겹치기를 다시 해도 유지됩니다.', () => `레이어 ${T.G.layers()}겹, 보유 겹 효과: 조각 ×<b>${fmt(Math.pow(1 + s.folds, 0.75))}</b>`],
+      ['꼭짓점 공방', 'vertex', '허문 블록의 모서리를 모아 둔 공방. 재구성해도 사라지지 않습니다.', () => `보유 꼭짓점 효과: 조각 ×<b>${fmt(Math.sqrt(1 + s.vertices))}</b>`],
+      ['석공소', 'grain', '블록을 결대로 다듬는 석공들의 작업장. 다듬기를 다시 해도 유지됩니다.', () => `다듬은 정도 ${(avgSplit() * 100).toFixed(1)}%  보유 결 효과: 조각 ×<b>${fmt(Math.pow(1 + s.grains, 0.5))}</b>`],
+      ['프리즘 실험실', 'prism', '빛을 갈라 다시 모으는 실험실. 굴절해도 유지됩니다.', () => `보유 프리즘 효과: 조각 ×<b>${fmt(Math.pow(1 + s.prisms, 0.6))}</b>`],
+      ['아틀리에', 'pigment', '방울 주민들이 다듬어진 칸을 하나하나 칠합니다. 걸어 다닌 땅에도 물감이 스며듭니다.', () => `채색 ${(T.G.coverage() * 100).toFixed(1)}% → 조각 ×${(1 + 2 * T.G.coverage()).toFixed(2)}`],
+      ['층계', 'fold', '세상 뒤에 세상을 겹치는 층계. 겹치기를 다시 해도 유지됩니다.', () => `${T.G.layers()}겹, 보유 안개 효과: 조각 ×<b>${fmt(Math.pow(1 + s.folds, 0.75))}</b>`],
       ['등불 회관', 'lantern', '정착한 마을의 회관. 정착을 다시 해도 유지됩니다.', () => `보유 등불 효과: 조각 ×<b>${fmt(Math.pow(1 + s.lanterns, 0.8))}</b>`],
       ['물자 창고', 'goods', '일꾼들이 만든 물자로 일을 자동화하고 업그레이드를 지킵니다. 어떤 리셋에도 사라지지 않습니다.', () => `일꾼 ${s.workers.length}명, 초당 물자 약 ${fmt((s.workers.length * T.vil.goodsRate()) / 3)}`],
     ][store];
@@ -404,36 +408,50 @@
   }
 
   // ── blueprints ───────────────────────────────────────────
-  function thumb(id, seed, size = 40) {
+  // preview at the resolution it will have when finished; fits inside a size×size box, standing on its base
+  function thumb(id, seed, size = 40, lvl) {
     const sh = T.shapeOf(id, seed);
     const cv = document.createElement('canvas');
     const rows = sh.h + sh.sink;
-    const scale = Math.max(0.25, Math.min(size / (sh.w * 8), size / (rows * 8)));
-    cv.width = Math.ceil(sh.w * 8 * scale); cv.height = Math.ceil(rows * 8 * scale);
+    const scale = Math.min(size / (sh.w * 8), size / (rows * 8), 3);
+    cv.width = size; cv.height = size;
     const ctx = cv.getContext('2d');
-    const res = T.RES[Math.min(3, Math.max(S().resLv, 1))];
-    sh.blocks.forEach((b, i) => { const cols = sh.colorAt(i, res), sub = 8 / res; cols.forEach((c, k) => { if (!c) return; ctx.fillStyle = T.st.tint(c, S().flags.l4Done > 0); ctx.fillRect(Math.floor((b.c * 8 + (k % res) * sub) * scale), Math.floor(((sh.h - 1 - b.r) * 8 + Math.floor(k / res) * sub) * scale), Math.ceil(sub * scale), Math.ceil(sub * scale)); }); });
+    const res = T.RES[lvl ?? T.st.previewLv(T.DEF[id])];
+    const ox = Math.floor((size - sh.w * 8 * scale) / 2), oy = size - Math.ceil(rows * 8 * scale);
+    sh.blocks.forEach((b, i) => { const cols = sh.colorAt(i, res), sub = 8 / res; cols.forEach((c, k) => { if (!c) return; ctx.fillStyle = T.st.tint(c, S().flags.l4Done > 0); ctx.fillRect(ox + Math.floor((b.c * 8 + (k % res) * sub) * scale), oy + Math.floor(((sh.h - 1 - b.r) * 8 + Math.floor(k / res) * sub) * scale), Math.ceil(sub * scale), Math.ceil(sub * scale)); }); });
     return cv;
+  }
+  UI.thumb = thumb;
+  // tiers with at least one open blueprint are shown; the next one stays a locked chip
+  function bpTiers() {
+    const vis = T.DEFS.filter((d) => T.st.visible(d));
+    const open = [...new Set(vis.filter((d) => T.st.available(d)).map((d) => d.tier))].sort((a, b) => a - b);
+    const next = [...new Set(vis.map((d) => d.tier))].filter((t) => !open.includes(t)).sort((a, b) => a - b)[0];
+    return { vis, open, next };
+  }
+  function tierChips(box, cur, onPick) {
+    const { open, next } = bpTiers();
+    for (const t of open) { const b = T.h(`<button class="dt ${t === cur ? 'on' : ''}">${T.TIERS[t].name}</button>`); b.addEventListener('click', () => { onPick(t); T.audio.play('tab'); }); box.appendChild(b); }
+    if (next !== undefined) box.appendChild(T.h(`<button class="dt lockchip" disabled data-tip="아직 열리지 않은 단계">${T.icon('lock')} ???</button>`));
   }
   function tabBp(body) {
     const s = S();
-    body.appendChild(T.h(`<p class="tab-intro">설계도를 펼치면 건축가들이 힘을 모아 짓고, 짓는 중에는 직접 클릭해 거들 수도 있습니다. 완공하면 도감에 기록되어 영원한 <b>명성</b>이 되고, 근처 주민들이 행복해집니다.</p>`));
+    body.appendChild(T.h(`<p class="tab-intro">설계도를 펼치면 건축가들이 힘을 모아 짓고, 짓는 중에는 <b>빈칸을 클릭</b>해 거들 수도 있습니다. 도면 해상도까지 다듬으면 완공되어 도감에 기록되고, 영원한 <b>명성</b>이 됩니다.</p>`));
     const fame = T.h(`<div class="layer-bonus"></div>`);
     bind(fame, () => (fame.innerHTML = `명성: 조각 ×<b>${T.G.fame().toFixed(2)}</b>  펼친 설계도 ${T.st.activeBps().length}/${T.G.bpSlots()}  해상도 ${T.RES_NAME[s.resLv]}`));
     body.appendChild(fame);
-    const vis = T.DEFS.filter((d) => T.st.visible(d));
-    const tiers = [...new Set(vis.map((d) => d.tier))].sort((a, b) => a - b);
-    if (!tiers.includes(UI.bpTier)) UI.bpTier = tiers[0];
+    const { vis, open } = bpTiers();
+    if (!open.includes(UI.bpTier)) UI.bpTier = open[0] ?? 0;
     const chips = T.h(`<div class="tier-chips"></div>`);
-    for (const t of tiers) { const b = T.h(`<button class="dt ${t === UI.bpTier ? 'on' : ''}">${T.TIERS[t].name}</button>`); b.addEventListener('click', () => { UI.bpTier = t; T.audio.click(); UI.rebuildPanel(); }); chips.appendChild(b); }
+    tierChips(chips, UI.bpTier, (t) => { UI.bpTier = t; UI.rebuildPanel(); });
     body.appendChild(chips);
     const grid = T.h(`<div class="bpgrid"></div>`);
     for (const d of vis.filter((x) => x.tier === UI.bpTier)) {
       const av = T.st.available(d), done = s.bps.done[d.id] || 0;
-      const c = T.h(`<button class="bpc ${av ? '' : 'locked'}" title="${d.name}"><span class="bpc-t"></span><span class="bpc-n">${av ? d.name : '???'}</span>${done ? `<span class="bpc-d">${done}</span>` : ''}${d.sky ? '<span class="bpc-s">하늘</span>' : ''}</button>`);
-      const th = thumb(d.id, 3); if (!av) th.classList.add('sil');
+      const c = T.h(`<button class="bpc ${av ? '' : 'locked'}" data-tip="${av ? `<b>${d.name}</b><br>${T.TIERS[d.tier].name}  도면 ${T.RES_NAME[d.res]}` : '아직 이른 도면'}"><span class="bpc-t"></span><span class="bpc-n">${av ? d.name : '???'}</span>${done ? `<span class="bpc-d">${done}</span>` : ''}${d.sky ? '<span class="bpc-s">하늘</span>' : ''}</button>`);
+      const th = thumb(d.id, T.st.variant(d.id)); if (!av) th.classList.add('sil');
       c.querySelector('.bpc-t').appendChild(th);
-      c.addEventListener('click', () => { T.audio.click(); openDrafting(d.id); });
+      c.addEventListener('click', () => { T.audio.play('open'); openDrafting(d.id); });
       grid.appendChild(c);
     }
     body.appendChild(grid);
@@ -442,47 +460,49 @@
   function openDrafting(id) {
     const s = S();
     draftTier = T.DEF[id].tier;
-    modal(`<div class="draft"><div class="draft-list"><div class="draft-title">도면 서랍</div><div class="draft-tiers"></div><div class="draft-items"></div></div>
-      <div class="draft-main"><div class="sheet"><canvas id="sheet" width="560" height="420"></canvas><div class="sheet-pencil"></div></div><div class="titleblock" id="tb"></div></div></div>`, 'm-draft');
-    const vis = T.DEFS.filter((d) => T.st.visible(d));
+    modal(`<div class="draft"><div class="draft-list"><div class="draft-title">도면 서랍</div><div class="draft-tiers"></div><div class="draft-items px-scroll"></div></div>
+      <div class="draft-main"><div class="sheet"><canvas id="sheet" width="560" height="420"></canvas><div class="sheet-pencil"></div><button class="mini sheet-var" id="sheet-var" data-tip="같은 설계도의 다른 모양">${T.icon('spark')} 다른 모양</button></div><div class="titleblock" id="tb"></div></div></div>`, 'm-draft');
+    const { vis } = bpTiers();
     const items = $('.draft-items');
     const drawItems = () => {
       items.innerHTML = '';
       for (const d of vis.filter((x) => x.tier === draftTier)) {
         const av = T.st.available(d);
         const b = T.h(`<button class="dl ${d.id === id ? 'on' : ''} ${av ? '' : 'locked'}"><span class="dl-name">${av ? d.name : '???'}</span>${s.bps.done[d.id] ? `<span class="dl-done">${s.bps.done[d.id]}</span>` : ''}</button>`);
-        b.addEventListener('click', () => { T.audio.click(); id = d.id; drawItems(); showSheet(d.id); });
+        b.addEventListener('click', () => { T.audio.play('page'); id = d.id; drawItems(); showSheet(d.id); });
         items.appendChild(b);
       }
     };
-    for (const t of [...new Set(vis.map((d) => d.tier))].sort()) {
-      const b = T.h(`<button class="dt ${t === draftTier ? 'on' : ''}">${T.TIERS[t].name}</button>`);
-      b.addEventListener('click', () => { draftTier = t; T.$$('.dt').forEach((x) => x.classList.remove('on')); b.classList.add('on'); drawItems(); });
-      $('.draft-tiers').appendChild(b);
-    }
+    const tiersBox = $('.draft-tiers');
+    const drawTiers = () => { tiersBox.innerHTML = ''; tierChips(tiersBox, draftTier, (t) => { draftTier = t; drawTiers(); drawItems(); }); };
+    drawTiers();
     drawItems();
     showSheet(id);
+    $('#sheet-var').addEventListener('click', () => { if (!T.st.available(T.DEF[id])) return; T.st.nextVariant(id); T.audio.play('page'); showSheet(id); UI.rebuildPanel(); });
   }
   function showSheet(id) {
     const s = S(), def = T.DEF[id], av = T.st.available(def);
     const cv = $('#sheet'); if (!cv) return;
-    T.st.renderSheet(cv, id, 3, !av);
+    const seed = T.st.variant(id);
+    T.st.renderSheet(cv, id, seed, !av);
     const sheet = cv.parentElement; sheet.classList.remove('drawn'); void sheet.offsetWidth; sheet.classList.add('drawn');
-    const sh = T.shapeOf(id, 3);
+    const vb = $('#sheet-var'); if (vb) vb.style.visibility = av ? '' : 'hidden';
+    const sh = T.shapeOf(id, seed);
     const full = T.st.activeBps().length >= T.G.bpSlots();
-    const why = !av ? (def.era > s.era ? `${T.ERAS[def.era].name} 시대에 열립니다` : (def.minRes || 0) > s.resLv ? `해상도 ${T.RES_NAME[def.minRes]}가 필요합니다` : '다음 이정표에서 열립니다') : '';
+    const why = !av ? (def.era > s.era ? `${T.ERAS[def.era].name} 시대에 열립니다` : (def.res || 0) > s.resLv ? `해상도 ${T.RES_NAME[def.res]}가 필요합니다` : '다음 이정표에서 열립니다') : '';
+    const pv = T.st.previewLv(def);
     $('#tb').innerHTML = `<div class="tb-grid">
         <div class="tb-cell tb-name"><small>명칭</small><b>${def.name}</b></div>
-        <div class="tb-cell"><small>분류</small><b>${T.TIERS[def.tier].name}</b></div>
+        <div class="tb-cell"><small>단계</small><b>${T.TIERS[def.tier].name}</b></div>
         <div class="tb-cell"><small>용도</small><b>${T.CATS[def.cat] ? T.CATS[def.cat].name : '특별'}${def.cap ? ` (${def.cap}명)` : ''}</b></div>
         <div class="tb-cell"><small>규격</small><b>${sh.w} × ${sh.h}${sh.sink ? ` 땅속 ${sh.sink}` : ''}</b></div>
-        <div class="tb-cell"><small>블럭 수</small><b>${sh.blocks.length}</b></div>
+        <div class="tb-cell"><small>블록 수</small><b>${sh.blocks.length}</b></div>
         <div class="tb-cell"><small>완공 보상</small><b>${ic('shard')} ${fmt(T.st.reward(def, sh))}</b></div>
-        <div class="tb-cell"><small>필요 해상도</small><b>${T.RES_NAME[def.minRes || 0]}</b></div>
-        <div class="tb-cell"><small>행복</small><b>${def.cap ? '잠자리' : `+${T.TIERS[def.tier].aura} (반경 ${T.TIERS[def.tier].radius})`}</b></div>
+        <div class="tb-cell"><small>도면 해상도</small><b>${T.RES_NAME[def.res || 0]}${pv > (def.res || 0) ? ` → ${T.RES_NAME[pv]}` : ''}</b></div>
+        <div class="tb-cell"><small>행복</small><b>${def.cap ? '잠자리' : `최대 +${T.TIERS[def.tier].aura} (반경 ${T.TIERS[def.tier].radius})`}</b></div>
         <div class="tb-cell tb-note"><small>비고</small><span>${av ? def.note : why}</span></div></div>
       <div class="tb-actions">${av ? `<button class="btn primary" id="bp-place" ${full ? 'disabled' : ''}>${full ? `펼칠 자리가 없음 (${T.G.bpSlots()})` : def.sky ? '하늘에 펼치기' : '현장에 펼치기'}</button>` : ''}
-        <span class="tb-done">${s.bps.done[id] ? `완공 ${s.bps.done[id]}회` : '미완공'}${s.era >= 1 ? '  다른 건축물 위에 펼치면 철거 주민이 먼저 치웁니다.' : ''}</span></div>`;
+        <span class="tb-done">${s.bps.done[id] ? `완공 ${s.bps.done[id]}회` : '미완공'}${(def.res || 0) > 0 ? `  블록을 다 쌓은 뒤 ${T.RES_NAME[def.res]}까지 다듬어야 완공됩니다.` : ''}${s.era >= 1 ? '  다른 건축물 위에 펼치면 쿵쿵 주민이 먼저 치웁니다.' : ''}</span></div>`;
     const b = $('#bp-place'); if (b) b.addEventListener('click', () => { closeModal(); T.st.startPlacing(id); });
   }
   UI.openDrafting = openDrafting;
@@ -548,14 +568,14 @@
     const el = $('#card'), s = S();
     if (T.PET[e.kind]) {
       const P = T.PET[e.kind];
-      const extra = { painter: `<span>붓질 <b>${T.G.paintCD().toFixed(2)}초</b></span>`, splitter: `<span>쪼개기 <b>${T.G.carveCD().toFixed(2)}초</b></span><span>해상도 <b>${T.RES_NAME[s.resLv]}</b></span>`, demo: `<span>철거 대기 <b>${T.st.condemned().length}</b></span>`, warper: `<span>레이어 <b>${T.G.layers()}겹</b></span>` }[e.kind];
+      const extra = { painter: `<span>붓질 <b>${T.G.paintCD().toFixed(2)}초</b></span>`, splitter: `<span>다듬기 <b>${T.G.carveCD().toFixed(2)}초</b></span><span>해상도 <b>${T.RES_NAME[s.resLv]}</b></span>`, demo: `<span>철거 대기 <b>${T.st.condemned().length}</b></span>`, warper: `<span>레이어 <b>${T.G.layers()}겹</b></span>` }[e.kind];
       el.innerHTML = `<div class="ac-head"><div class="ac-pt"></div><div><b>${e.d.name}</b><small>${P.role}</small></div><button class="m-x" id="ac-x">${T.icon('minus')}</button></div><div class="ac-stats">${extra}<span>지금 <b id="ac-m"></b></span></div><div class="ac-life"><small>수명</small><i><em></em></i></div>`;
       el.querySelector('.ac-pt').appendChild(T.sprites.portrait(P.sprite, s.flags.color, 3, 'happy'));
     } else {
       const d = e.d;
       const role = e.kind === 'arch' ? `${T.SHAPE[d.s].name} 건축가` : e.kind === 'worker' ? '일꾼' : '아기';
-      el.innerHTML = `<div class="ac-head"><div class="ac-pt"></div><div><b>${d.name}</b><small>${role}${(d.z || 0) ? `  ${d.z + 1}번째 레이어` : ''}</small></div><button class="m-x" id="ac-x">${T.icon('minus')}</button></div>
-        <div class="ac-stats">${e.kind === 'arch' ? '<span>레벨 <b id="ac-lv"></b></span><span>블럭 가치 <b id="ac-v"></b></span>' : ''}<span>행복 <b id="ac-h"></b></span><span>지금 <b id="ac-m"></b></span></div>
+      el.innerHTML = `<div class="ac-head"><div class="ac-pt"></div><div><b>${d.name}</b><small>${role}${(d.z || 0) ? `  ${d.z + 1}번째 겹` : ''}</small></div><button class="m-x" id="ac-x">${T.icon('minus')}</button></div>
+        <div class="ac-stats">${e.kind === 'arch' ? '<span>레벨 <b id="ac-lv"></b></span><span>블록 가치 <b id="ac-v"></b></span>' : ''}<span>행복 <b id="ac-h"></b></span><span>지금 <b id="ac-m"></b></span></div>
         <div class="ac-life"><small>수명</small><i><em></em></i></div><div class="ac-act"></div>`;
       el.querySelector('.ac-pt').appendChild(T.sprites.portrait(d.s, s.flags.color, 3, 'happy'));
       if (e.kind === 'arch') {
@@ -582,14 +602,15 @@
     const aura = T.vil.auraAt(st);
     el.innerHTML = `<div class="ac-head"><div class="ac-pt bp"></div><div><b>${d.name}${st.src === 'grave' && st.name ? `: ${st.name}` : ''}</b><small>${T.TIERS[d.tier].name}  ${st.src === 'bp' ? '설계도로 지음' : st.src === 'grave' ? '무덤' : '건축가의 작품'}</small></div><button class="m-x" id="ac-x">${T.icon('minus')}</button></div>
       <div class="ac-stats">
-        <span>블럭 <b>${sh.blocks.length}</b></span><span>${T.st.done(st) ? '완공' : '진행'} <b id="sc-p"></b></span>
-        ${T.st.done(st) ? '<span>쪼갠 정도 <b id="sc-s"></b></span><span>칠한 정도 <b id="sc-c"></b></span>' : ''}
-        ${aura ? `<span>행복 <b>+${aura.toFixed(2)}</b></span><span>범위 <b>${Math.round(T.TIERS[d.tier].radius * (1 + 0.3 * (s.lup.aura || 0)))}</b></span>` : ''}
+        <span>블록 <b>${sh.blocks.length}</b></span>
+        ${!T.st.done(st) ? '<span>쌓는 중 <b id="sc-p"></b></span>' : !T.st.finished(st) ? '<span>다듬는 중 <b id="sc-r"></b></span>' : ''}
+        ${aura ? `<span>행복 <b id="sc-h"></b></span><span>범위 <b>${Math.round(T.TIERS[d.tier].radius * (1 + 0.3 * (s.lup.aura || 0)))}</b></span>` : ''}
         ${d.cap ? `<span>정원 <b>${people.length}/${T.vil.houseCap(st)}</b></span>` : ''}
       </div>
+      ${T.st.done(st) && st.src !== 'grave' ? `<div class="ac-comp" data-tip="완성도는 기본 100%에 다듬은 정도(8비트 기준 최대 +100%)와 칠한 정도(최대 +100%)를 더한 값입니다. 행복 효과는 완성도에 비례하고, 300%일 때 가장 큽니다."><div class="acc-head"><small>완성도</small><b id="sc-c"></b></div><div class="acc-bar"><i class="acc-base"></i><i class="acc-split" id="sc-cs"></i><i class="acc-paint" id="sc-cp"></i></div><div class="acc-legend"><span>기본</span><span>다듬기 <b id="sc-cs2"></b></span><span>색 <b id="sc-cp2"></b></span></div></div>` : ''}
       ${d.cap ? `<div class="ac-people">${people.map((e) => `<span class="${e.inside === 'sleep' ? 'zz' : ''}">${e.d.name}${e.inside === 'sleep' ? ' (자는 중)' : ''}</span>`).join('') || '<span>아직 아무도 살지 않아요</span>'}</div>` : ''}
       <p class="ac-note">${d.note}</p>`;
-    el.querySelector('.ac-pt').appendChild(thumb(st.id, st.seed, 40));
+    el.querySelector('.ac-pt').appendChild(thumb(st.id, st.seed, 48, st.lv ? Math.max(...st.lv) : 0));
     el.querySelector('#ac-x').addEventListener('click', UI.closeCard);
     el.classList.add('on');
     refreshCard();
@@ -601,8 +622,15 @@
     if (card.st) {
       const st = card.st;
       if (!s.structs.includes(st)) { UI.closeCard(); return; }
-      set('#sc-p', T.st.done(st) ? '100%' : `${Math.round((st.n / T.st.count(st)) * 100)}%`);
-      set('#sc-s', `${Math.round(T.st.splitFrac(st) * 100)}%`); set('#sc-c', `${Math.round(T.st.paintedFrac(st) * 100)}%`);
+      set('#sc-p', `${st.n}/${T.st.count(st)}`);
+      set('#sc-r', `${Math.floor(T.st.refineFrac(st) * 100)}%`);
+      const sp = T.st.splitFrac(st), pa = T.st.paintedFrac(st);
+      set('#sc-c', `${Math.round((1 + sp + pa) * 100)}%`);
+      set('#sc-cs2', `+${Math.round(sp * 100)}%`); set('#sc-cp2', `+${Math.round(pa * 100)}%`);
+      const cs = el.querySelector('#sc-cs'), cp = el.querySelector('#sc-cp');
+      if (cs) cs.style.width = (sp * 100 / 3).toFixed(1) + '%';
+      if (cp) cp.style.width = (pa * 100 / 3).toFixed(1) + '%';
+      set('#sc-h', `+${T.vil.auraAt(st).toFixed(3)}`);
       return;
     }
     const e = card.e, d = e.d;
@@ -647,7 +675,7 @@
   // ── settings, codes, intros ──────────────────────────────
   UI.settings = function () {
     const s = S();
-    const skips = [[1, 4, '재구성'], [2, 9, '쪼개기'], [3, 12, '굴절']].filter(([, m]) => s.ms >= m);
+    const skips = [[1, 4, '재구성'], [2, 9, '다듬기'], [3, 12, '굴절']].filter(([, m]) => s.ms >= m);
     modal(`<div class="m-head"><h2>설정</h2></div>
       <label class="opt"><input type="checkbox" id="o-snd" ${s.settings.sound ? 'checked' : ''}> 소리</label>
       ${skips.map(([n, , name]) => `<label class="opt"><input type="checkbox" data-skip="${n}" ${s.settings.skip[n] ? 'checked' : ''}> ${name} 연출 생략</label>`).join('')}
@@ -658,7 +686,7 @@
       <textarea id="o-save" rows="3" placeholder="여기에 저장 코드를 붙여 넣고 가져오기"></textarea>
       <div class="m-actions left"><button class="btn" id="o-exp">내보내기</button><button class="btn" id="o-imp">가져오기</button><button class="btn danger" id="o-wipe">처음부터</button></div>
       <div class="sub-head"><span>기록</span></div>
-      <p class="stats">쌓은 블럭 ${fmt(s.stats.lifeBlocks)}<br>쪼갠 조각 ${fmt(s.stats.carved)}<br>누적 조각 ${fmt(s.stats.lifeEarned)}<br>완공한 건축물 ${s.stats.built}<br>쓰다듬기 ${fmt(s.stats.pets)}회<br>플레이 ${T.fmtTime(s.stats.played)}</p>
+      <p class="stats">쌓은 블록 ${fmt(s.stats.lifeBlocks)}<br>다듬은 조각 ${fmt(s.stats.carved)}<br>누적 조각 ${fmt(s.stats.lifeEarned)}<br>완공한 건축물 ${s.stats.built}<br>쓰다듬기 ${fmt(s.stats.pets)}회<br>플레이 ${T.fmtTime(s.stats.played)}</p>
       <div class="m-actions left"><button class="btn ghost" id="o-cred">크레딧</button></div>`);
     $('#o-snd').addEventListener('change', (e) => { s.settings.sound = e.target.checked; T.audio.setOn(e.target.checked); UI.updateDock(); });
     T.$$('[data-skip]').forEach((x) => x.addEventListener('change', (e) => (s.settings.skip[x.dataset.skip] = e.target.checked)));
@@ -692,16 +720,16 @@
     modal(`<div class="m-head"><span class="m-kicker">${kicker}</span><h2>${title}</h2></div><div class="intro-pt" id="ip"></div>${text}<div class="m-actions"><button class="btn primary" data-close>반가워!</button></div>`);
     for (const k of sprites) $('#ip').appendChild(T.sprites.portrait(k, true, 5, 'happy'));
   };
-  UI.introSplit = () => intro('새 주민', '끌', ['chisel'], `<p class="m-flavor">완공된 건축물의 블럭을 결대로 쪼개는 주민입니다. 처음에는 한 칸을 조금씩 쪼개지만, 손이 빨라지면 한 칸을 한 번에 쪼갭니다.<br>석공소의 <b>해상도</b>를 올리면 블럭을 더 잘게 쪼갤 수 있어서, 건축물의 진짜 모습이 드러납니다.</p>`);
-  UI.introPainter = () => intro('새 주민', '방울', ['drop'], `<p class="m-flavor">물감 한 방울에서 태어난 채색 주민. 쪼개진 칸을 <b>하나하나</b> 진짜 색으로 칠합니다. 붓이 빨라지면 한 칸을 한 번에 칠해요. 걸어 다닌 땅에도 물감을 남깁니다.</p>`);
-  UI.introLayers = () => intro('겹치기', '레이어', ['portal'], `<p class="m-flavor">세상 뒤에 세상이 겹칩니다. 「층계」에서 <b>레이어</b>를 늘리면 뒤쪽에 새 땅이 생기고, 워프 주민이 일 없는 주민을 데리고 그곳으로 건너갑니다. 뒤쪽 레이어는 조금 작고 흐릿하게 보입니다.</p>`);
+  UI.introSplit = () => intro('새 주민', '톡톡', ['chisel'], `<p class="m-flavor">건축물의 블록을 결대로 다듬는 주민입니다. 처음에는 한 칸을 조금씩 다듬지만, 손이 빨라지면 한 칸을 한 번에 다듬습니다.<br>석공소의 <b>해상도</b>를 올리면 블록을 더 곱게 다듬을 수 있어서, 건축물의 진짜 모습이 드러납니다.</p>`);
+  UI.introPainter = () => intro('새 주민', '방울', ['drop'], `<p class="m-flavor">물감 한 방울에서 태어난 채색 주민. 다듬어진 칸을 <b>하나하나</b> 진짜 색으로 칠합니다. 붓이 빨라지면 한 칸을 한 번에 칠해요. 걸어 다닌 땅에도 물감을 남깁니다.</p>`);
+  UI.introLayers = () => intro('겹치기', '겹', ['portal'], `<p class="m-flavor">세상 뒤에 세상이 겹칩니다. 「층계」에서 <b>겹</b>을 늘리면 뒤쪽에 새 땅이 생기고, 폴짝 주민이 일 없는 주민을 데리고 그곳으로 건너갑니다. 뒤쪽 겹은 조금 작고 흐릿하게 보입니다.</p>`);
   UI.introVillage = function () {
     modal(`<div class="m-head"><span class="m-kicker">정착</span><h2>마을이 시작됩니다</h2></div><div class="intro-pt" id="ip"></div>
       <ul class="intro-list"><li><b>집</b>을 지으면 밤에 들어가 잠을 잡니다. 잠은 <b>수명</b>을 회복시킵니다. 밖에서 자면 수명이 빨리 줄어요.</li>
       <li>모든 주민에게는 수명이 있습니다. 다한 주민은 긴 잠에 들고, 친구들은 슬퍼하며 가끔 작은 무덤을 지어 줍니다.</li>
       <li>집이 아닌 건축물 근처에 있으면 <b>행복</b>해져서 더 빨리 일합니다. 건축물을 클릭하면 범위가 보여요.</li>
       <li>하루가 지나고 달이 차오릅니다. 아주 가끔 <b>오로라</b>나 <b>일식</b>이 찾아오면 잠시 모든 게 빨라집니다.</li>
-      <li>짓고 있는 건축물은 뼈대로 보이고, 다른 건축물 위에 설계도를 펼치면 망치 주민이 먼저 치웁니다.</li></ul>
+      <li>짓고 있는 건축물은 뼈대로 보이고, 다른 건축물 위에 설계도를 펼치면 쿵쿵 주민이 먼저 치웁니다.</li></ul>
       <div class="m-actions"><button class="btn primary" data-close>시작하기</button></div>`);
     for (const k of ['square', 'demo']) $('#ip').appendChild(T.sprites.portrait(k, true, 5, 'happy'));
   };

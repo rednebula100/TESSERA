@@ -109,20 +109,21 @@
     const s = S();
     const opts = [];
     if (s.era < 1) {
-      const maxT = T.G.maxSculptTier();
-      for (const d of T.DEFS) if (d.era === 0 && !d.hidden && d.tier <= maxT && (d.minRes || 0) <= s.resLv && (!d.sky || s.ms >= 6)) opts.push([d, [6, 3, 1][d.tier] * (d.sky ? 0.5 : 1)]);
+      // builders' own works stay modest; the big ones are left to the player's blueprints
+      const maxT = Math.min(3, T.G.maxTier());
+      for (const d of T.DEFS) if (d.era === 0 && !d.hidden && d.tier <= maxT && (d.res || 0) <= s.resLv && (!d.sky || s.ms >= 6)) opts.push([d, (6 / Math.pow(1 + d.tier, 1.3)) * (d.sky ? 0.5 : 1)]);
     } else {
       const pop = V.population(), cap = V.capacity();
       const needHouse = cap < pop + 2;
       for (const d of T.DEFS) {
-        if (d.hidden || d.era > s.era || (d.era === 0 && (d.tier > 1 || d.sky))) continue;
+        if (d.hidden || d.era > s.era || (d.res || 0) > s.resLv || (d.era === 0 && (d.tier > 2 || d.sky))) continue;
         const zt = T.ZONES[V.zoneFor(d.cat) || 'park'];
         if (!zt || zt.era > s.era) continue;
         if (d.tier >= 4 && (pop < 6 || T.ent.archs.length < 3)) continue;
         let w = { house: needHouse ? 10 : 1.2, park: 2.2, deco: 1.6, market: 1.1, prod: 1.3, civic: 0.6, water: 0.5, sculpture: 0.4 }[d.cat] || 1;
         if (d.era === s.era) w *= 1.8;
         if (d.era < s.era - 1) w *= 0.3;
-        if (d.tier === 5) w *= 0.15; else if (d.tier === 4) w *= 0.35;
+        if (d.tier >= 6) w *= 0.15; else if (d.tier >= 4) w *= 0.35;
         opts.push([d, w]);
       }
     }
@@ -143,7 +144,7 @@
     return T.st.create(def.id, seed, x, 'auto', { y, z });
   };
   V.maxAuto = (z = 0) => Math.max(1, Math.ceil(T.ent.archs.filter((e) => (e.d.z || 0) === z).length / 2.2));
-  V.onLayer = function () { T.ui.toast(`새 레이어가 열렸습니다. 이제 ${T.G.layers()}겹입니다. 워프 주민이 주민들을 데려갑니다.`, 'big'); T.fx.layerOpen(); };
+  V.onLayer = function () { T.ui.toast(`새 겹이 열렸습니다. 이제 ${T.G.layers()}겹입니다. 폴짝 주민이 주민들을 데려갑니다.`, 'big'); T.fx.layerOpen(); };
 
   // ── happiness ────────────────────────────────────────────
   let happyT = 0;
@@ -158,7 +159,7 @@
       const d = T.DEF[st.id];
       if (d.cap || d.cat === 'special') continue;
       const t = T.TIERS[d.tier];
-      auras.push([st.x + (T.st.shape(st).w * B) / 2, t.radius * rmul, t.aura * (st.src === 'bp' ? 1.5 : 1), st.z || 0]);
+      auras.push([st.x + (T.st.shape(st).w * B) / 2, t.radius * rmul, V.auraAt(st), st.z || 0]);
     }
     for (const e of T.ent.archs.concat(T.ent.workers)) {
       let h = 0;
@@ -167,7 +168,7 @@
       e.happy = Math.min(2.5, h);
     }
   };
-  V.auraAt = function (st) { const d = T.DEF[st.id]; if (d.cap || d.cat === 'special') return 0; return T.TIERS[d.tier].aura * (st.src === 'bp' ? 1.5 : 1); };
+  V.auraAt = function (st) { const d = T.DEF[st.id]; if (d.cap || d.cat === 'special') return 0; return T.TIERS[d.tier].aura * (st.src === 'bp' ? 1.5 : 1) * (T.st.completeness(st) / 3); };
 
   // ── homes ────────────────────────────────────────────────
   V.residents = () => T.ent.archs.concat(T.ent.workers, T.ent.painters, T.ent.splitters, T.ent.demos, T.ent.warpers);

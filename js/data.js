@@ -27,9 +27,9 @@ const fx = (n) => T.fmt(n);
 
 // ── 0 작업장 (조각) ─────────────────────────────────────────
 T.UP0 = [
-  { id: 'solid', name: '단단한 블럭', icon: 'block', max: 15, ms: 0, cost: (l) => 25 * pw(1.9, l) * pw(1.04, l * l), desc: (l) => `블럭 기본가치 +1 (현재 +${l})` },
+  { id: 'solid', name: '단단한 블록', icon: 'block', max: 15, ms: 0, cost: (l) => 25 * pw(1.9, l) * pw(1.04, l * l), desc: (l) => `블록 기본가치 +1 (현재 +${l})` },
   { id: 'quick', name: '날렵한 손', icon: 'clock', max: 6, ms: 0, cost: (l) => 60 * pw(2.7, l) * pw(1.06, l * l), desc: (l) => `건축가 쿨타임 8% 감소 (현재 ×${pw(0.92, l).toFixed(2)})` },
-  { id: 'hand', name: '손재주', icon: 'hand', max: 5, ms: 0, cost: (l) => 60 * pw(4.5, l) * pw(1.1, l * l), desc: (l) => `클릭 블럭 가치 ×2, 소프트캡 있음 (현재 ×${fx(pw(2, l))})` },
+  { id: 'hand', name: '손재주', icon: 'hand', max: 5, ms: 0, cost: (l) => 60 * pw(4.5, l) * pw(1.1, l * l), desc: (l) => `클릭 블록 가치 ×2, 소프트캡 있음 (현재 ×${fx(pw(2, l))})` },
   { id: 'tap', name: '손놀림', icon: 'tap', max: 5, ms: 1, cost: (l) => 250 * pw(3.4, l), desc: (l) => `클릭 쿨타임 10% 감소 (현재 ${T.G ? T.G.clickCD().toFixed(2) : '?'}초)` },
   { id: 'walk', name: '종종걸음', icon: 'boot', max: 3, ms: 1, cost: (l) => 400 * pw(3.8, l) * pw(1.15, l * l), desc: (l) => `걷기 속도 +25% (현재 ×${(1 + 0.25 * l).toFixed(2)})` },
   { id: 'arm', name: '긴 팔', icon: 'arm', max: 3, ms: 1, cost: (l) => 500 * pw(4, l) * pw(1.15, l * l), desc: (l) => `던지기 사거리 +30% (현재 ×${(1 + 0.3 * l).toFixed(2)})` },
@@ -37,7 +37,7 @@ T.UP0 = [
   { id: 'focus', name: '설계 집중', icon: 'grid', max: 3, ms: 2, cost: (l) => 1200 * pw(4, l), desc: (l) => `플레이어 설계도를 먼저 도울 확률 +8% (현재 ${60 + l * 8}%)` },
   { id: 'omen', name: '꼭짓점 예감', icon: 'vertex', max: 5, ms: 3, cost: (l) => 3e5 * pw(7, l), desc: (l) => `재구성 시 꼭짓점 ×1.25 (현재 ×${pw(1.25, l).toFixed(2)})` },
   { id: 'team', name: '협동', icon: 'team', max: 5, ms: 4, cost: (l) => 6e4 * pw(4.5, l), desc: (l) => `같은 건축물을 함께 짓는 동료 한 명당 쿨타임 4% 감소 (현재 ${l * 4}%)` },
-  { id: 'double', name: '두 개씩', icon: 'two', max: 5, ms: 7, cost: (l) => 3e6 * pw(5, l), desc: (l) => `블럭을 2개 던질 확률 +6% (현재 ${l * 6}%)` },
+  { id: 'double', name: '두 개씩', icon: 'two', max: 5, ms: 7, cost: (l) => 3e6 * pw(5, l), desc: (l) => `블록을 2개 던질 확률 +6% (현재 ${l * 6}%)` },
 ];
 // ── 1 꼭짓점 공방 ───────────────────────────────────────────
 T.UP1 = [
@@ -49,7 +49,7 @@ T.UP1 = [
   { id: 'u_circle', name: '동그라미 건축가', icon: 'circle', max: 1, shape: 'circle', ms: 4, req: (s) => s.vup.u_triangle, cost: () => 40, desc: () => '동그라미 건축가를 고용할 수 있습니다.' },
   { id: 'pet', name: '쓰다듬기 장인', icon: 'heart', max: 3, ms: 5, cost: (l) => 6 * pw(4, l), desc: (l) => `기분 좋음 지속시간 ×2, 효과 강화 (현재 ${10 * pw(2, l)}초)` },
   { id: 'shelf', name: '설계도 서고', icon: 'grid', max: 2, ms: 5, cost: (l) => 30 * pw(6, l), desc: (l) => `동시에 펼칠 수 있는 설계도 +1 (현재 ${1 + l}개)` },
-  { id: 'lucky', name: '행운의 블럭', icon: 'spark', max: 4, ms: 6, cost: (l) => 35 * pw(4.5, l), desc: (l) => `빛나는 블럭(가치 ×25) 확률 +1% (현재 ${l}%)` },
+  { id: 'lucky', name: '행운의 블록', icon: 'spark', max: 4, ms: 6, cost: (l) => 35 * pw(4.5, l), desc: (l) => `빛나는 블록(가치 ×25) 확률 +1% (현재 ${l}%)` },
   { id: 'u_pentagon', name: '오각 건축가', icon: 'penta', max: 1, shape: 'pentagon', ms: 6, req: (s) => s.vup.u_circle, cost: () => 600, desc: () => '오각 건축가를 고용할 수 있습니다.' },
   { id: 'fund', name: '시작 자금', icon: 'block', max: 4, ms: 6, cost: (l) => 15 * pw(3.5, l), desc: (l) => `리셋 후 조각 ${fx(100 * pw(10, l + 1))}개로 시작` },
 ];
@@ -57,7 +57,7 @@ T.UP1 = [
 T.RES_COST = [0, 1, 20, 300];
 T.RES_MS = [0, 0, 10, 13];
 T.UP2 = [
-  { id: 'chisel', name: '끌 주민', icon: 'chisel', max: 4, ms: 0, cost: (l) => 1 * pw(3, l), desc: (l) => `블럭을 쪼개는 끌 주민 +1 (현재 ${l + 1}명)` },
+  { id: 'chisel', name: '끌 주민', icon: 'chisel', max: 4, ms: 0, cost: (l) => 1 * pw(3, l), desc: (l) => `블록을 쪼개는 끌 주민 +1 (현재 ${l + 1}명)` },
   { id: 'carve', name: '날 세우기', icon: 'clock', max: 8, ms: 0, cost: (l) => 2 * pw(2.8, l), desc: (l) => `쪼개기 쿨타임 20% 감소. 아주 빨라지면 한 칸을 한 번에 쪼갭니다 (현재 ${T.G ? T.G.carveCD().toFixed(2) : '?'}초)` },
   { id: 'sharp', name: '고운 결', icon: 'star4', max: 8, ms: 0, cost: (l) => 3 * pw(3.5, l), desc: (l) => `조각 ×3, 쪼갠 조각 판매 ×2 (현재 ×${fx(pw(3, l))})` },
   { id: 'grain', name: '결 따라', icon: 'chisel', max: 8, ms: 7, cost: (l) => 5 * pw(4, l), desc: (l) => `결 획득 ×1.5 (현재 ×${fx(pw(1.5, l))})` },
@@ -71,7 +71,7 @@ T.UP3 = [
   { id: 'harmony', name: '무지개 조화', icon: 'flower', max: 1, ms: 10, cost: () => 4, desc: () => '고용한 건축가 종류 하나당 조각 ×1.5' },
   { id: 'keepShapes', name: '형태 기억', icon: 'penta', max: 1, ms: 10, cost: () => 5, desc: () => '굴절 후에도 세모, 동그라미, 오각 해금을 유지합니다.' },
   { id: 'u_hexagon', name: '육각 건축가', icon: 'hex', max: 1, shape: 'hexagon', ms: 10, req: (s) => s.pup.u_star, cost: () => 25, desc: () => '육각 건축가를 고용할 수 있습니다.' },
-  { id: 'light', name: '빛의 투사', icon: 'bolt', max: 1, ms: 11, cost: () => 8, desc: () => '건축가 한 명이 던지는 대신 빛으로 블럭을 즉시 놓습니다.' },
+  { id: 'light', name: '빛의 투사', icon: 'bolt', max: 1, ms: 11, cost: () => 8, desc: () => '건축가 한 명이 던지는 대신 빛으로 블록을 즉시 놓습니다.' },
   { id: 'lightN', name: '빛의 제자', icon: 'bolt', max: 4, ms: 11, req: (s) => s.pup.light, cost: (l) => 12 * pw(4, l), desc: (l) => `빛의 투사를 쓰는 건축가 +1 (현재 ${1 + l}명)` },
   { id: 'blue', name: '청사진', icon: 'grid', max: 3, ms: 11, cost: (l) => 3 * pw(3.5, l), desc: (l) => `건축물 완공 보상 ×2 (현재 ×${pw(2, l)})` },
   { id: 'dawn', name: '이른 새벽', icon: 'sun', max: 1, ms: 11, cost: () => 6, desc: () => '리셋 후 Lv5 네모 건축가 2명과 함께 시작' },
@@ -100,7 +100,7 @@ T.UP5 = [
 T.UP6 = [
   { id: 'life', name: '오래오래', icon: 'heart', max: 6, ms: 0, cost: (l) => 1 * pw(2.6, l), desc: (l) => `주민 수명 +35% (현재 ×${(1 + 0.35 * l).toFixed(2)})` },
   { id: 'lshard', name: '등불 아래서', icon: 'lamp', max: 10, ms: 0, cost: (l) => 1 * pw(3.4, l), desc: (l) => `조각 ×4 (현재 ×${fx(pw(4, l))})` },
-  { id: 'demo', name: '철거 주민', icon: 'hammer', max: 3, ms: 0, cost: (l) => 2 * pw(3, l), desc: (l) => `블럭을 하나씩 허무는 망치 주민 +1 (현재 ${l + 1}명)` },
+  { id: 'demo', name: '철거 주민', icon: 'hammer', max: 3, ms: 0, cost: (l) => 2 * pw(3, l), desc: (l) => `블록을 하나씩 허무는 망치 주민 +1 (현재 ${l + 1}명)` },
   { id: 'nap', name: '포근한 이불', icon: 'moon', max: 4, ms: 0, cost: (l) => 2 * pw(2.8, l), desc: (l) => `집에서 잘 때 수명 회복 ×1.5 (현재 ×${pw(1.5, l).toFixed(2)})` },
   { id: 'aura', name: '넓은 광장', icon: 'ring', max: 4, ms: 18, cost: (l) => 4 * pw(3.4, l), desc: (l) => `건축물 행복 범위 +30% (현재 ×${(1 + 0.3 * l).toFixed(1)})` },
   { id: 'roomy', name: '다락방', icon: 'house', max: 2, ms: 18, cost: (l) => 6 * pw(5, l), desc: (l) => `집마다 거주 인원 +1 (현재 +${l})` },
@@ -179,8 +179,8 @@ T.ZONES = {
 T.CODES = { ROSETTE: 1, 장미창: 1, PARADE: 1, CREDITS: 1, HELLO: 1 };
 T.TUTORIAL = [
   { at: null, text: '어서 오세요. 이곳은 아무것도 없는 회색 세계입니다. 작은 건축가들과 함께 무언가를 지어 봐요.' },
-  { at: '#cv', text: '하늘을 <b>왼쪽 클릭</b>하면 격자에 블럭을 놓고, 블럭을 팔아 <b>조각</b>을 얻습니다. 클릭에는 짧은 쿨타임이 있어요.', wait: (s) => s.stats.clicks >= 3 },
-  { at: '#dock', text: '<b>오른쪽 버튼으로 끌면</b> 화면이 움직이고, 휠로 확대합니다. 「간격」 버튼 위에서 휠을 굴리면 블럭 간격을 바꿔요.' },
+  { at: '#cv', text: '하늘을 <b>왼쪽 클릭</b>하면 격자에 블록을 놓고, 블록을 팔아 <b>조각</b>을 얻습니다. 클릭에는 짧은 쿨타임이 있어요.', wait: (s) => s.stats.clicks >= 3 },
+  { at: '#dock', text: '<b>오른쪽 버튼으로 끌면</b> 화면이 움직이고, 휠로 확대합니다. 「간격」 버튼 위에서 휠을 굴리면 블록 간격을 바꿔요.' },
   { at: '#panel', text: '조각 15개가 모이면 「고용」 탭에서 첫 <b>건축가</b>를 데려오세요. 건축가는 혼자서, 또는 함께 조형물을 짓습니다.', wait: (s) => s.archs.length >= 1 },
   { at: '#cv', text: '건축가를 <b>클릭</b>하면 쓰다듬고, <b>끌면</b> 들어 올립니다. 짓고 있는 곳 근처에 내려놓으면 거들어요.' },
   { at: '#cv', text: '<b>오른쪽 버튼을 짧게</b> 누르면 부탁 메뉴가 뜹니다. 모여, 춤추기, 따라와 같은 부탁을 해 보세요.' },

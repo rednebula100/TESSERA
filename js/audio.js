@@ -1,6 +1,6 @@
 'use strict';
 // ─────────────────────────────────────────────────────────────
-//  AUDIO — 블럭 음계 + ZzFX 효과음
+//  AUDIO — 블록 음계 + ZzFX 효과음
 // ─────────────────────────────────────────────────────────────
 (function () {
   let ac = null, master = null;
@@ -73,5 +73,6 @@
     tick() { A.tone(1400, 0.03, 'square', 0.012); },
     unlock() { [0, 4, 7].forEach((s, i) => A.tone(A.pitch(s + 5, 392), 0.5, 'triangle', 0.035, i * 0.07)); },
   };
+  A.play = (name, o) => { const f = { fill: () => A.place((o && o.y) || 0), tapEmpty: A.tick, open: A.click, tab: A.click, page: A.click, frame: A.unlock }[name] || A[name]; if (f) f((o && o.y) || 0); };
   T.audio = A;
 })();

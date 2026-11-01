@@ -1,7 +1,7 @@
 'use strict';
 // ─────────────────────────────────────────────────────────────
 //  MAIN: 루프, 입력, 카메라, 레이어별 렌더링
-//  좌클릭: 블럭(격자) / 주민 쓰다듬기, 끌기 / 짓는 건축물 거들기 / 건축물 정보 / 설계도 확정 / 구역
+//  좌클릭: 블록(격자) / 주민 쓰다듬기, 끌기 / 짓는 건축물 거들기 / 건축물 정보 / 설계도 확정 / 구역
 //  우클릭 드래그: 화면 이동, 우클릭: 부탁 메뉴
 // ─────────────────────────────────────────────────────────────
 (function () {
@@ -78,13 +78,14 @@
   M.reindex = () => { occupied = new Set(T.G.s.player.map((p) => keyOf(p[0], p[1]))); };
   function canAct() { return clickCD <= 0; }
   function spend() { clickCD = T.G.clickCD(); T.G.s.stats.clicks++; }
-  // help build: the clicked block if it is free, otherwise the next free one nearby
-  function contribute(st, wx, wy) {
+  // help build: only the empty cell under the cursor gets filled
+  M.cellAt = function (st, wx, wy) {
     const sh = T.st.shape(st);
     const c = Math.floor((wx - st.x) / B), r = Math.floor((wy - (st.y || 0)) / B);
-    let ci = sh.blocks.findIndex((b) => b.c === c && b.r === r);
-    if (ci < 0 || st.f[ci] || T.st.rt(st).res.has(ci)) ci = T.st.nextCell(st, wx);
-    if (ci < 0) return false;
+    const ci = sh.blocks.findIndex((b) => b.c === c && b.r === r);
+    return ci >= 0 && !st.f[ci] ? ci : -1;
+  };
+  function contribute(st, ci) {
     spend();
     T.st.fill(st, ci);
     const v = T.G.clickValue();
@@ -93,7 +94,8 @@
     const [x, y] = T.st.cellPos(st, ci);
     T.fx.floatText(x, y + 8, '+' + T.fmt(v), false);
     T.fx.splash(x, y, T.st.tint(T.st.blockColor(st, ci), false));
-    T.audio.place(y);
+    T.fx.snapRing(x, y);
+    T.audio.play('fill', { y });
     return true;
   }
   function placePlayer(wx, wy, quiet) {
@@ -116,13 +118,17 @@
     return true;
   }
   function leftClick(wx, wy, quiet) {
-    const st = T.st.hit(wx, wy, 0);
+    const z = T.view();
+    const st = T.st.hit(wx, wy, z);
     if (st && !T.st.done(st)) {
       if (st.clearing) { if (!quiet) T.ui.toast('철거가 끝나면 함께 지을 수 있어요.'); return true; }
+      const ci = M.cellAt(st, wx, wy);
+      if (ci < 0) { if (!quiet) T.audio.play('tapEmpty'); return true; }
       if (!canAct()) { pending = [wx, wy]; return true; }
-      contribute(st, wx, wy); return true;
+      return contribute(st, ci);
     }
-    if (st && !quiet) { T.ui.openStruct(st); T.audio.click(); return true; }
+    if (st && !quiet) { T.ui.openStruct(st); T.audio.play('open'); return true; }
+    if (T.G.s.settings.noPlace) return false;
     if (!canAct()) { pending = [wx, wy]; return true; }
     return placePlayer(wx, wy, quiet);
   }
@@ -295,7 +301,23 @@
       ctx.arc(mouse.sx + 14, mouse.sy + 14, 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (denyFlash > 0 ? 1 : 1 - clickCD / tot));
       ctx.stroke();
     }
-    if (!T.st.placing && !T.vil.zoneTool && !down && !rdown && cam.z > 0.6 && s.settings.gap > 0 && mouse.wy > 0 && !T.st.at(mouse.wx, mouse.wy, 0)) {
+    const hov = !T.st.placing && !T.vil.zoneTool && !rdown && cam.z > 0.35 ? T.st.at(mouse.wx, mouse.wy, T.view(), true) : null;
+    if (hov && !hov.clearing) {
+      // the empty cell under the cursor: click fills exactly this one
+      const ci = M.cellAt(hov, mouse.wx, mouse.wy);
+      if (ci >= 0) {
+        const [cx, cy] = T.st.cellPos(hov, ci);
+        const [px, py] = T.w2s(cx - B / 2, cy + B / 2);
+        const zz = cam.z * T.layerK();
+        const pulse = 0.55 + Math.sin(performance.now() / 140) * 0.25;
+        ctx.fillStyle = color ? `rgba(47,111,176,${0.18 * pulse})` : `rgba(40,40,40,${0.12 * pulse})`;
+        ctx.fillRect(Math.round(px), Math.round(py), Math.ceil(B * zz), Math.ceil(B * zz));
+        ctx.strokeStyle = color ? `rgba(47,111,176,${pulse})` : `rgba(40,40,40,${pulse * 0.8})`;
+        ctx.lineWidth = Math.max(1, Math.round(zz / 3));
+        ctx.strokeRect(Math.round(px) + 0.5, Math.round(py) + 0.5, Math.ceil(B * zz) - 1, Math.ceil(B * zz) - 1);
+      }
+    }
+    if (!hov && !s.settings.noPlace && !T.st.placing && !T.vil.zoneTool && !down && !rdown && cam.z > 0.6 && s.settings.gap > 0 && mouse.wy > 0 && !T.st.at(mouse.wx, mouse.wy, T.view())) {
       const [x, y] = snap(mouse.wx, mouse.wy);
       const [px, py] = T.w2s(x - B / 2, y + B / 2);
       ctx.strokeStyle = occupied.has(keyOf(x, y)) ? 'rgba(200,60,60,0.5)' : color ? 'rgba(47,111,176,0.45)' : 'rgba(40,40,40,0.3)';
@@ -322,7 +344,8 @@
     if (loaded && (s.archs.length || s.structs.length)) M.home(); else { cam.tx = cam.x = 0; cam.ty = cam.y = 120; cam.tz = cam.z = 2.4; }
     clampCam(); cam.x = cam.tx; cam.y = cam.ty; cam.z = cam.tz;
     if (off) setTimeout(() => T.ui.offline(off), 2400);
-    if (!loaded && T.G.oldSave && !isDemo) setTimeout(() => T.ui.toast('큰 업데이트가 있어서 처음부터 시작합니다. 블럭 쪼개기부터 깊이 레이어까지, 새로 지어 봐요.', 'big'), 2600);
+    if (!loaded && T.G.oldSave && !isDemo) setTimeout(() => T.ui.toast('아주 오래된 저장이라 처음부터 시작합니다.', 'big'), 1800);
+    if (loaded && T.G.migrated && !isDemo) setTimeout(() => T.ui.toast('v4 업데이트: 저장을 그대로 옮겼습니다. 다듬기, 소리, 새 설계도 단계를 만나 보세요.', 'big'), 1800);
     const tc = document.getElementById('titlecard');
     setTimeout(() => tc.classList.add('in'), 50);
     const hide = () => { tc.classList.add('out'); setTimeout(() => tc.remove(), 900); };
@@ -352,9 +375,9 @@
       const z = s.zup.layer ? i % T.G.layers() : 0;
       const st = T.vil.startProject((Math.random() - 0.5) * 300, z);
       if (!st) continue;
-      st.f = null;
+      st.f = null; st.fin = 1;
       const nb = T.st.count(st);
-      st.lv = new Array(nb).fill(s.resLv); st.cv = new Array(nb).fill(0);
+      st.lv = new Array(nb).fill(T.st.maxLvOf(st)); st.cv = new Array(nb).fill(0);
       st.pt = st.lv.map((l) => (q.has('paint') ? T.RES[l] * T.RES[l] : 0));
     }
     if (kind === 'village') for (let i = 0; i < 4; i++) s.workers.push({ s: 'square', home: 0, name: '일꾼' + i, life: 400, z: 0 });

@@ -1,7 +1,8 @@
 'use strict';
 // ─────────────────────────────────────────────────────────────
 //  STRUCTURES: 건축물의 배치, 진행, 완공, 쪼개기, 채색, 철거
-//  블럭마다 lv(쪼개기 단계 0..3), cv(다음 단계로 깎인 조각 수), pt(칠한 조각 수)
+//  블록마다 lv(다듬기 단계 0..3), cv(다음 단계로 깎인 조각 수), pt(칠한 조각 수)
+//  f === null: 골조 완성(블록을 다 놓음), fin: 완공(도면 해상도까지 다듬음, 보상 지급)
 // ─────────────────────────────────────────────────────────────
 (function () {
   const B = T.B;
@@ -140,6 +141,7 @@
     return true;
   };
 
+  // every block placed: the frame stands (houses can be slept in from now on)
   function complete(st) {
     const s = S();
     const def = ST.def(st);
@@ -147,6 +149,24 @@
     st.f = null;
     initDone(st);
     rt(st).res.clear();
+    for (const e of T.ent.archs) {
+      if (e.proj === st) {
+        if (e.y === 0 && !e.held && !e.inside) { e.happyT = 2; T.ent.hop(e, 150); }
+        T.ent.setProj(e, null);
+      }
+    }
+    if (s.player.length) T.G.redrawRange(st.x - B, st.x + sh.w * B + B);
+    T.vil.onBuilt(st);
+    if (ST.needRes(st) <= 0 || st.src === 'grave') finish(st);
+    else { T.fx.frameDone(st, sh); T.audio.play('frame', { x: st.x + (sh.w * B) / 2 }); }
+  }
+  // the blueprint resolution has been reached: rewards, record, stamp
+  function finish(st) {
+    const s = S();
+    if (st.fin) return;
+    st.fin = 1;
+    const def = ST.def(st);
+    const sh = ST.shape(st);
     s.stats.built++;
     s.run.built.push(def.tier);
     const isBp = st.src === 'bp';
@@ -155,18 +175,12 @@
       const reward = ST.reward(def, sh) * (isBp ? 1 : 0.6);
       T.G.earn(reward);
       T.fx.complete(st, def, sh, reward, isBp);
+      if (isBp) for (const e of T.ent.archs) if (Math.abs(e.x - (st.x + (sh.w * B) / 2)) < sh.w * B && Math.random() < 0.3) e.bubble = { text: ['완성!', '와아', '♪♪', '멋져!', '해냈다'][Math.floor(Math.random() * 5)], t: 1.8 };
     }
     T.G.computeMult();
-    for (const e of T.ent.archs) {
-      if (e.proj === st) {
-        if (e.y === 0 && !e.held && !e.inside) { e.happyT = 2; T.ent.hop(e, 150); }
-        if (isBp && Math.random() < 0.3) e.bubble = { text: ['완성!', '와아', '♪♪', '멋져!', '해냈다'][Math.floor(Math.random() * 5)], t: 1.8 };
-        T.ent.setProj(e, null);
-      }
-    }
-    if (s.player.length) T.G.redrawRange(st.x - B, st.x + sh.w * B + B);
-    T.vil.onBuilt(st);
   }
+  ST.finish = finish;
+  ST.finished = (st) => !!st.fin;
   ST.reward = (def, sh) => sh.blocks.length * T.G.bestValue() * T.TIERS[def.tier].mult * Math.pow(2, S().pup.blue || 0) * (1 + 0.25 * S().era);
 
   ST.drawStruct = function (st) {
@@ -188,19 +202,24 @@
   };
 
   // ── refine: carving (splitter), painting (painter), knocking down (hammer) ──
-  ST.maxLv = () => S().resLv || 0;
-  // next block on a finished structure that can still be carved finer
+  // a structure is refined up to its blueprint resolution (+ 섬세한 손길), never past the player's resolution
+  ST.fine = () => S().gup.fine || 0;
+  ST.maxLvOf = (st) => Math.min(S().resLv || 0, (ST.def(st).res || 0) + ST.fine());
+  ST.needRes = (st) => Math.min(S().resLv || 0, ST.def(st).res || 0);
+  ST.previewLv = (def) => Math.min(3, Math.max(def.res || 0, Math.min(S().resLv || 0, (def.res || 0) + ST.fine())));
+  // next block on a framed structure that can still be carved finer
   ST.nextCarve = function (st) {
     if (!ST.done(st)) return -1;
     initDone(st);
-    const mx = ST.maxLv();
+    const mx = ST.maxLvOf(st);
     for (let i = 0; i < st.lv.length; i++) if (st.lv[i] < mx) return i;
     return -1;
   };
   ST.carve = function (st, i, pieces) {
     initDone(st);
     let carved = 0;
-    while (pieces > 0 && st.lv[i] < ST.maxLv()) {
+    const mx = ST.maxLvOf(st);
+    while (pieces > 0 && st.lv[i] < mx) {
       const R2 = T.RES[st.lv[i] + 1];
       const need = R2 * R2 - st.cv[i];
       const k = Math.min(need, pieces);
@@ -212,7 +231,18 @@
       }
     }
     drawBlock(st, i);
+    if (!st.fin && st.lv[i] >= ST.needRes(st) && ST.refineFrac(st) >= 1) finish(st);
     return carved;
+  };
+  // progress toward the blueprint resolution (what is needed to finish)
+  ST.refineFrac = function (st) {
+    if (!ST.done(st)) return 0;
+    initDone(st);
+    const need = ST.needRes(st);
+    if (need <= 0) return 1;
+    let a = 0;
+    for (let i = 0; i < st.lv.length; i++) a += st.lv[i] >= need ? 1 : (st.lv[i] + st.cv[i] / (T.RES[st.lv[i] + 1] ** 2)) / need;
+    return a / st.lv.length;
   };
   ST.nextPaint = function (st) {
     if (!ST.done(st)) return -1;
@@ -234,12 +264,14 @@
     for (let i = 0; i < st.pt.length; i++) { const R = T.RES[st.lv[i]]; a += st.pt[i] / (R * R); t++; }
     return t ? a / t : 0;
   };
+  // how finely the structure is carved, measured against 8비트 (0..1)
   ST.splitFrac = function (st) {
     if (!ST.done(st) || !st.lv) return 0;
-    const mx = Math.max(1, ST.maxLv());
-    let a = 0; for (const l of st.lv) a += Math.min(l, mx) / mx;
+    let a = 0; for (const l of st.lv) a += l / 3;
     return a / st.lv.length;
   };
+  // 완성도: 100% + 다듬기(8비트 기준) + 색 → 최대 300%
+  ST.completeness = (st) => 1 + ST.splitFrac(st) + ST.paintedFrac(st);
   // hammers knock blocks off one by one (from the top)
   ST.knock = function (st, n) {
     const sh = ST.shape(st);
@@ -262,24 +294,28 @@
   ST.available = function (def) {
     const s = S();
     if (def.hidden || def.era > s.era) return false;
-    if ((def.minRes || 0) > (s.resLv || 0)) return false;
-    if (def.era === 0 && def.tier <= 2 && def.tier > T.G.maxSculptTier()) return false;
+    if ((def.res || 0) > (s.resLv || 0)) return false;
+    if (def.era === 0 && def.tier > T.G.maxTier()) return false;
     if (def.sky && s.ms < 6) return false;
-    if (def.tier === 4 && s.era < 2) return false;
-    if (def.tier === 5 && s.era < 3) return false;
+    if (def.era > 0 && def.tier >= 6 && s.era < 3) return false;
+    if (def.era > 0 && def.tier >= 4 && s.era < 2) return false;
     return true;
   };
   ST.visible = function (def) {
     const s = S();
     if (def.hidden) return false;
-    if (def.era === 0) return def.tier <= T.G.maxSculptTier() + 1 && (def.minRes || 0) <= (s.resLv || 0) + 1 && (!def.sky || s.ms >= 5);
+    if (def.era === 0) return def.tier <= T.G.maxTier() + 1 && (def.res || 0) <= (s.resLv || 0) + 1 && (!def.sky || s.ms >= 5);
     return s.flags.l6Done > 0 && def.era <= s.era + 1;
   };
+  // the variant (seed) shown in every preview is the one that gets built
+  ST.variantSeed = (id, k) => 3 + (k || 0) * 101;
+  ST.variant = (id) => ST.variantSeed(id, (S().variants || {})[id] || 0);
+  ST.nextVariant = function (id) { const s = S(); if (!s.variants) s.variants = {}; s.variants[id] = (((s.variants[id] || 0) + 1) % 4); return ST.variant(id); };
   ST.activeBps = () => S().structs.filter((st) => st.src === 'bp' && !ST.done(st));
   ST.startPlacing = function (id) {
     if (ST.activeBps().length >= T.G.bpSlots()) { T.ui.toast(`동시에 펼칠 수 있는 설계도는 ${T.G.bpSlots()}개입니다.`); T.audio.deny(); return false; }
     ST.placing = id;
-    ST.seed = 1 + Math.floor(Math.random() * 9999);
+    ST.seed = ST.variant(id);
     document.body.classList.add('placing');
     T.ui.placingHint(true, T.DEF[id].name);
     return true;
@@ -448,12 +484,17 @@
           ctx.fillStyle = color ? 'rgba(47,111,176,0.16)' : 'rgba(80,80,80,0.12)';
           for (const i of rt(st).res) { const [cx, cy] = ST.cellPos(st, i); const [px, py] = T.w2s(cx - B / 2, cy + B / 2); ctx.fillRect(px, py, B * zoom, B * zoom); }
         }
-        if (z === 0 && zoom > 0.3 && (bp || zoom > 0.9)) {
-          let text = `${def.name}  ${st.n}/${sh.blocks.length}${st.clearing ? '  철거 대기' : ''}`;
-          if (s.ms >= 10) { const eta = ST.eta(st); if (eta) text += `  약 ${T.fmtTime(eta)}`; }
-          label(ctx, st.x + (sh.w * B) / 2, top, text, st.n / sh.blocks.length, bp, rv);
+        if (zoom > 0.3 && (bp || zoom > 0.9)) {
+          const text = `${def.name}  ${st.n}/${sh.blocks.length}`;
+          let sub = st.clearing ? '철거 대기' : '';
+          if (!sub && s.ms >= 10) { const eta = ST.eta(st); if (eta) sub = `약 ${T.fmtTime(eta)}`; }
+          label(ctx, st.x + (sh.w * B) / 2, top, text, st.n / sh.blocks.length, bp, rv, sub, !st.clearing && !!sub);
         }
-      } else if (st.src === 'bp' && zoom > 0.55 && z === 0) plaque(ctx, st.x + (sh.w * B) / 2, (st.y || 0), def.name);
+      } else if (!st.fin && zoom > 0.3) {
+        // framed, waiting for 톡톡 to carve it to the blueprint resolution
+        const k = ST.refineFrac(st);
+        label(ctx, st.x + (sh.w * B) / 2, top, `${def.name}  다듬는 중`, k, st.src === 'bp', 1, `${Math.floor(k * 100)}%  ${T.RES_NAME[ST.needRes(st)]}까지`, false, true);
+      } else if (st.src === 'bp' && zoom > 0.55) plaque(ctx, st.x + (sh.w * B) / 2, (st.y || 0), def.name);
       if (st.condemned && zoom > 0.3) {
         ctx.save(); ctx.globalAlpha = 0.35 + Math.sin(now / 160) * 0.15;
         ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
@@ -487,20 +528,37 @@
       drawGhost(ctx, ST.placing, ST.seed, x, y, 1, 0.6 + Math.sin(now / 180) * 0.12, false, tint);
     }
   };
-  function label(ctx, x, top, text, k, bp, rv) {
+  // two-line label: name and progress on top, a small sub line (time left, waiting) below
+  function label(ctx, x, top, text, k, bp, rv, sub, clock, refine) {
     const color = S().flags.color;
-    const [lx, ly] = T.w2s(x, top);
+    const [lx, ly0] = T.w2s(x, top);
+    const ly = Math.round(ly0 - (sub ? 12 : 0));
     ctx.save();
     ctx.font = '11px Galmuri11, monospace';
     const tw = Math.ceil(ctx.measureText(text).width) + 12;
-    ctx.globalAlpha = bp ? T.clamp((rv - 0.6) * 3, 0, 1) : 0.75;
-    ctx.fillStyle = bp ? (color ? '#1f4e79' : '#3a3a3a') : 'rgba(60,60,60,0.75)';
-    ctx.fillRect(Math.round(lx - tw / 2), Math.round(ly - 26), tw, 17);
+    ctx.globalAlpha = bp ? T.clamp((rv - 0.6) * 3, 0, 1) : 0.8;
+    const bg = refine ? (color ? '#5c4a7a' : '#4a4a4a') : bp ? (color ? '#1f4e79' : '#3a3a3a') : 'rgba(60,60,60,0.75)';
+    const x0 = Math.round(lx - tw / 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(x0 + 2, ly - 24, tw, 17);
+    ctx.fillStyle = bg; ctx.fillRect(x0, ly - 26, tw, 17);
     ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(text, Math.round(lx), Math.round(ly - 17));
+    ctx.fillText(text, Math.round(lx), ly - 17);
     const pw = tw - 8;
-    ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(Math.round(lx - pw / 2), Math.round(ly - 12), pw, 2);
-    ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(lx - pw / 2), Math.round(ly - 12), pw * k, 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(Math.round(lx - pw / 2), ly - 12, pw, 2);
+    ctx.fillStyle = refine ? '#e7d6ff' : '#ffffff'; ctx.fillRect(Math.round(lx - pw / 2), ly - 12, Math.round(pw * k), 2);
+    if (sub) {
+      ctx.font = '9px Galmuri9, monospace';
+      const sw = Math.ceil(ctx.measureText(sub).width) + (clock ? 18 : 10);
+      const sx = Math.round(lx - sw / 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillRect(sx, ly - 7, sw, 13);
+      ctx.fillStyle = bg; ctx.fillRect(sx, ly - 7, sw, 1); ctx.fillRect(sx, ly + 5, sw, 1); ctx.fillRect(sx, ly - 7, 1, 13); ctx.fillRect(sx + sw - 1, ly - 7, 1, 13);
+      if (clock) { // 5x5 pixel clock
+        const cx = sx + 4, cy = ly - 3;
+        ctx.fillStyle = bg; ctx.fillRect(cx + 1, cy, 3, 1); ctx.fillRect(cx + 1, cy + 4, 3, 1); ctx.fillRect(cx, cy + 1, 1, 3); ctx.fillRect(cx + 4, cy + 1, 1, 3); ctx.fillRect(cx + 2, cy + 1, 1, 2); ctx.fillRect(cx + 3, cy + 2, 1, 1);
+      }
+      ctx.fillStyle = bg; ctx.textAlign = clock ? 'left' : 'center';
+      ctx.fillText(sub, clock ? sx + 12 : Math.round(lx), ly);
+    }
     ctx.restore();
   }
   function plaque(ctx, x, y, name) {
@@ -558,7 +616,7 @@
     const ox = Math.round((W - cs * sh.w) / 2), groundY = Math.round((H - cs * rows) / 2) + cs * sh.h - 4;
     if (locked) ctx.globalAlpha = 0.35;
     // the actual pixel art, in ink colour, at the best resolution available
-    const res = T.RES[Math.max(0, Math.min(3, (S().resLv || 0)))];
+    const res = T.RES[ST.previewLv(T.DEF[id])];
     sh.blocks.forEach((b, i) => {
       const cols = sh.colorAt(i, res), sub = cs / res;
       cols.forEach((c, k) => { if (!c) return; const ii = k % res, jj = Math.floor(k / res); const [r, g, bl] = T.hexToRgb(c); const lum = (0.3 * r + 0.59 * g + 0.11 * bl) / 255;
@@ -579,7 +637,7 @@
     ctx.globalAlpha = 1;
     ctx.strokeStyle = line; ctx.fillStyle = line; ctx.lineWidth = 1;
     ctx.font = '11px Galmuri11, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    dim(ctx, ox, groundY + sh.sink * cs + 20, ox + cs * sh.w, groundY + sh.sink * cs + 20, `${sh.w} 블럭`, paper);
+    dim(ctx, ox, groundY + sh.sink * cs + 20, ox + cs * sh.w, groundY + sh.sink * cs + 20, `${sh.w} 블록`, paper);
     dim(ctx, ox + cs * sh.w + 22, groundY, ox + cs * sh.w + 22, groundY - sh.h * cs, `${sh.h}`, paper, true);
     for (let x = ox - 24; x < ox + cs * sh.w + 24; x += 6) ctx.fillRect(x, groundY + 2, 3, 1);
     if (locked) {

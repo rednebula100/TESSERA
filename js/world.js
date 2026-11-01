@@ -8,6 +8,9 @@
   const cam = (T.cam = { x: 0, y: 150, z: 2, tx: 0, ty: 150, tz: 2, W: 0, H: 0, dpr: 1 });
   // depth layers: farther = smaller, slower, lifted toward the horizon
   T.Z = 0;
+  // the depth plane the player is looking at (float while the camera dollies)
+  T.focus = 0;
+  T.view = () => Math.round(T.focus);
   T.layerK = (z = T.Z) => 1 - 0.13 * z;
   const lift = (z) => z * 26;
   T.w2s = (wx, wy) => { const k = T.layerK(); return [(wx - cam.x) * cam.z * k + cam.W / 2, cam.H / 2 - ((wy - cam.y) * k + lift(T.Z)) * cam.z]; };

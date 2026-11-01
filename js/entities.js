@@ -1,6 +1,6 @@
 'use strict';
 // ─────────────────────────────────────────────────────────────
-//  ENTITIES: 건축가, 일꾼, 아기, 방울(채색), 끌(쪼개기), 망치(철거), 워프(레이어 이동)
+//  ENTITIES: 건축가, 일꾼, 아기, 방울(채색), 톡톡(다듬기), 쿵쿵(철거), 폴짝(겹 건너기)
 // ─────────────────────────────────────────────────────────────
 (function () {
   const B = T.B;
@@ -14,9 +14,9 @@
   const PAINT_COLS = ['#f29fae', '#8ecae6', '#b8e0a1', '#ffd166', '#c3a6ff', '#ffb38a'];
   const PET = {
     painter: { list: painters, sprite: 'drop', name: '방울', role: '채색 주민', up: ['gup', 'painter'], need: (s) => s.flags.l4Done > 0 },
-    splitter: { list: splitters, sprite: 'chisel', name: '끌', role: '쪼개기 주민', up: ['sup', 'chisel'], need: (s) => s.flags.l2Done > 0 },
-    demo: { list: demos, sprite: 'demo', name: '망치', role: '철거 주민', up: ['lup', 'demo'], need: (s) => s.era >= 1 },
-    warper: { list: warpers, sprite: 'portal', name: '워프', role: '레이어 이동 주민', up: ['zup', 'warper'], need: (s) => s.flags.l5Done > 0 },
+    splitter: { list: splitters, sprite: 'chisel', name: '톡톡', role: '다듬기 주민', up: ['sup', 'chisel'], need: (s) => s.flags.l2Done > 0 },
+    demo: { list: demos, sprite: 'demo', name: '쿵쿵', role: '철거 주민', up: ['lup', 'demo'], need: (s) => s.era >= 1 },
+    warper: { list: warpers, sprite: 'portal', name: '폴짝', role: '겹 건너기 주민', up: ['zup', 'warper'], need: (s) => s.flags.l5Done > 0 },
   };
   T.PET = PET;
 
@@ -415,7 +415,7 @@
       T.G.earn(T.G.bestValue() * 0.04 * total * Math.pow(2, S().sup.sharp || 0));
       if (Math.random() < 0.3) T.audio.chip();
       return total;
-    }, '쪼갤 게 없네');
+    }, '다듬을 게 없네');
   }
   function updatePainter(e, dt) {
     const cd = T.G.paintCD();

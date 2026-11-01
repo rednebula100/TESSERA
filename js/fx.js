@@ -145,6 +145,15 @@
         const zz = z * T.layerK(e.z);
         ctx.strokeStyle = `rgba(195,166,255,${1 - k})`; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.ellipse(px, py, (6 + k * 18) * zz, (14 + k * 10) * zz, 0, 0, Math.PI * 2); ctx.stroke();
+      } else if (e.type === 'ring') {
+        const [px, py] = T.w2s(e.x, e.y);
+        const r = Math.round((4 + k * 7) * z);
+        ctx.globalAlpha = 1 - k;
+        ctx.fillStyle = colorOn() ? '#2f6fb0' : '#444';
+        const t = Math.max(1, Math.round(z * 0.8));
+        ctx.fillRect(Math.round(px - r), Math.round(py - r), r * 2, t); ctx.fillRect(Math.round(px - r), Math.round(py + r - t), r * 2, t);
+        ctx.fillRect(Math.round(px - r), Math.round(py - r), t, r * 2); ctx.fillRect(Math.round(px + r - t), Math.round(py - r), t, r * 2);
+        ctx.globalAlpha = 1;
       } else if (e.type === 'layer') {
         ctx.fillStyle = `rgba(255,255,255,${(1 - k) * 0.35})`; ctx.fillRect(0, 0, T.cam.W, T.cam.H);
       } else if (e.type === 'zone') {
@@ -159,7 +168,7 @@
         const yy = y0 - h * ky;
         const g = ctx.createLinearGradient(0, yy - 30 * z, 0, yy + 6 * z);
         g.addColorStop(0, 'rgba(255,255,255,0)');
-        g.addColorStop(0.8, 'rgba(255,255,255,0.85)');
+        g.addColorStop(0.8, e.soft ? 'rgba(231,214,255,0.6)' : 'rgba(255,255,255,0.85)');
         g.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = g;
         ctx.fillRect(x0 - 6 * z, yy - 30 * z, w + 12 * z, 36 * z);
@@ -186,6 +195,17 @@
     setTimeout(() => { for (let i = 0; i < 60; i++) add({ x: st.x + Math.random() * sh.w * B, y: (st.y || 0) + sh.h * B + 10, vx: (Math.random() - 0.5) * 160, vy: 80 + Math.random() * 200, g: 260, life: 1.6 + Math.random(), max: 2.6, kind: 'confetti', color: cols[i % cols.length], size: 1.3 }); }, 650);
     T.audio.complete();
     setTimeout(() => T.ui.stamp(def, reward, (T.G.s.bps.done[def.id] || 0) <= 1), 500);
+  };
+  // a cell snaps into place: a tiny pixel ring
+  FX.snapRing = function (x, y) {
+    effects.push({ type: 'ring', x, y, t: 0, dur: 0.32, z: T.view() });
+  };
+  // all blocks placed, waiting for 톡톡: a soft shimmer instead of the big stamp
+  FX.frameDone = function (st, sh) {
+    const B = T.B;
+    effects.push({ type: 'sweep', x: st.x, y: st.y || 0, w: sh.w * B, h: sh.h * B, t: 0, dur: 0.8, soft: true });
+    for (let i = 0; i < 10; i++) add({ x: st.x + Math.random() * sh.w * B, y: (st.y || 0) + Math.random() * sh.h * B, vx: 0, vy: 14, g: 0, life: 0.9, max: 0.9, kind: 'spark', color: colorOn() ? '#e7d6ff' : '#ffffff', size: 1.2 });
+    if (st.src === 'bp') T.ui.toast(`「${T.DEF[st.id].name}」 골조 완성. 톡톡 주민이 ${T.RES_NAME[T.st.needRes(st)]}까지 다듬으면 완공됩니다.`);
   };
   FX.demolish = function (st, sh) {
     const B = T.B;
@@ -433,9 +453,9 @@
         <div class="cr-sec"><small>함께 만든</small><b>Claude</b></div>
         <div class="cr-sec"><small>건축가</small><b>네모, 세모, 동그라미, 오각, 별, 육각</b></div>
         <div class="cr-sec"><small>채색</small><b>방울</b></div>
-        <div class="cr-sec"><small>쪼개기</small><b>끌</b></div>
-        <div class="cr-sec"><small>철거</small><b>망치</b></div>
-        <div class="cr-sec"><small>레이어 이동</small><b>워프</b></div>
+        <div class="cr-sec"><small>다듬기</small><b>톡톡</b></div>
+        <div class="cr-sec"><small>철거</small><b>쿵쿵</b></div>
+        <div class="cr-sec"><small>겹 건너기</small><b>폴짝</b></div>
         <div class="cr-sec"><small>마을 사람들</small><b>지금까지 태어나고 떠난 모든 주민</b></div>
         <div class="cr-sec"><small>글꼴</small><b>Galmuri by Quiple (SIL OFL 1.1)</b></div>
         <div class="cr-sec"><small>도면 선</small><b>Rough.js by Preet Shihn (MIT)</b></div>

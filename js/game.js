@@ -3,13 +3,13 @@
 //  GAME: 상태, 경제, 리셋 6겹, 이정표, 연대기, 자동화, 저장
 // ─────────────────────────────────────────────────────────────
 (function () {
-  const SAVE_KEY = 'tessera-save-v3';
+  const SAVE_KEY = 'tessera-save-v4';
   const B = T.B;
   const pw = Math.pow;
 
   function defaultState() {
     return {
-      v: 3,
+      v: 4, variants: {},
       shards: 0, runEarned: 0,
       vertices: 0, vertsRun: 0, grains: 0, grainRun: 0, prisms: 0, prismsRun: 0,
       pigments: 0, pigRun: 0, folds: 0, foldRun: 0, lanterns: 0, eraLanterns: 0, goods: 0, eraGoods: 0,
@@ -20,7 +20,7 @@
       flags: { l1Done: 0, l2Done: 0, l3Done: 0, l4Done: 0, l5Done: 0, l6Done: 0, seen: {}, color: false, rosette: false, seenTabs: {}, credits: false, tut: 0 },
       stats: { lifeBlocks: 0, lifeEarned: 0, lifeVerts: 0, lifeGrains: 0, lifePrisms: 0, lifePigments: 0, lifeFolds: 0, lifeLanterns: 0, lifeGoods: 0,
         clicks: 0, pets: 0, played: 0, built: 0, paintBlocks: 0, carved: 0, radial: 0 },
-      settings: { sound: true, gap: 1, skip: {} },
+      settings: { sound: true, gap: 1, skip: {}, noPlace: false, buyN: 1, vol: { master: 0.8, sfx: 0.9, ui: 0.7 } },
       last: Date.now(),
     };
   }
@@ -44,7 +44,8 @@
   G.shapeUnlocked = (id) => id === 'square' || !!G.s.vup['u_' + id] || !!G.s.pup['u_' + id];
   G.owned = (id) => G.s.archs.filter((a) => a.s === id).length;
   G.layers = () => 1 + lv(G.s.zup, 'layer');
-  G.maxSculptTier = () => (G.s.ms >= 11 ? 2 : G.s.ms >= 8 ? 1 : 0);
+  // highest primitive blueprint tier opened by milestones
+  G.maxTier = () => { let t = 0; T.TIER_MS.forEach((m, i) => { if (G.s.ms >= m) t = i; }); return t; };
   G.fever = () => (G.s.event && G.s.event.t > 0 ? 3 : 1);
   G.fame = function () {
     let m = 1;
@@ -95,6 +96,16 @@
   G.carveCD = () => 1.1 * pw(0.8, lv(G.s.sup, 'carve'));
   G.paintCD = () => 1.4 * pw(0.8, lv(G.s.gup, 'brush'));
   G.lightSlots = () => (G.s.pup.light ? 1 + lv(G.s.pup, 'lightN') : 0);
+  // 자리: how many builders the world can hold. Milestones, two small upgrades and, after settling, houses raise it
+  const CAP_MS = [[0, 3], [1, 4], [2, 5], [4, 6], [6, 7], [9, 8], [11, 9], [13, 10]];
+  G.archCap = function () {
+    const s = G.s;
+    let c = 3; for (const [m, v] of CAP_MS) if (s.ms >= m) c = v;
+    c += lv(s.vup, 'room') + lv(s.pup, 'attic');
+    if (s.era >= 1 && T.vil) c = Math.max(c, T.vil.capacity() - G.s.workers.length);
+    return c;
+  };
+  G.capFull = () => G.s.archs.length >= G.archCap();
   G.hireCost = (id) => { const sh = T.SHAPE[id]; const n = G.owned(id); return sh.cost * pw(sh.growth, n) * pw(1.25, n * n * 0.25); };
   G.levelCost = (d) => T.SHAPE[d.s].cost * 0.5 * pw(1.5, d.lvl) * pw(1.01, d.lvl * d.lvl);
   G.bpSlots = () => 1 + lv(G.s.vup, 'shelf');
@@ -108,15 +119,15 @@
     null,
     { id: 1, name: '재구성', cur: '꼭짓점', icon: 'vertex', seen: (s) => s.ms >= 3 || s.flags.l1Done > 0, need: 1e6, prog: (s) => s.runEarned, needText: '이번 회차 조각',
       raw: (s) => 3 * Math.sqrt(s.runEarned / 1e6) * pw(1.25, lv(s.up, 'omen')) * pw(1.5, lv(s.vup, 'res')) * pw(2, lv(s.pup, 'refr')) * (s.ms >= 5 ? 1.5 : 1) },
-    { id: 2, name: '쪼개기', cur: '결', icon: 'chisel', seen: (s) => s.ms >= 6 || s.flags.l2Done > 0, need: 100, prog: (s) => s.vertsRun, needText: '이번 쪼개기까지 꼭짓점',
+    { id: 2, name: '다듬기', cur: '결', icon: 'chisel', seen: (s) => s.ms >= 6 || s.flags.l2Done > 0, need: 100, prog: (s) => s.vertsRun, needText: '이번 회차 꼭짓점',
       raw: (s) => 3 * pw(s.vertsRun / 100, 0.7) * pw(1.5, lv(s.sup, 'grain')) * pw(2, lv(s.pup, 'refr')) },
-    { id: 3, name: '굴절', cur: '프리즘', icon: 'prism', seen: (s) => s.ms >= 9 || s.flags.l3Done > 0, need: 30, prog: (s) => s.grainRun, needText: '이번 굴절까지 결',
+    { id: 3, name: '굴절', cur: '프리즘', icon: 'prism', seen: (s) => s.ms >= 9 || s.flags.l3Done > 0, need: 30, prog: (s) => s.grainRun, needText: '이번 회차 결',
       raw: (s) => 2 * pw(s.grainRun / 30, 0.6) * pw(2, lv(s.gup, 'prismX')) * (s.ms >= 11 ? 1.5 : 1) },
-    { id: 4, name: '물들임', cur: '안료', icon: 'pigment', seen: (s) => s.ms >= 12 || s.flags.l4Done > 0, need: 30, prog: (s) => s.prismsRun, needText: '이번 물들임까지 프리즘',
+    { id: 4, name: '물들임', cur: '안료', icon: 'pigment', seen: (s) => s.ms >= 12 || s.flags.l4Done > 0, need: 30, prog: (s) => s.prismsRun, needText: '이번 회차 프리즘',
       raw: (s) => 2 * pw(s.prismsRun / 30, 0.6) },
-    { id: 5, name: '겹치기', cur: '겹', icon: 'layers', seen: (s) => s.ms >= 14 || s.flags.l5Done > 0, need: 30, prog: (s) => s.pigRun, needText: '이번 겹치기까지 안료',
+    { id: 5, name: '겹치기', cur: '안개', icon: 'layers', seen: (s) => s.ms >= 14 || s.flags.l5Done > 0, need: 30, prog: (s) => s.pigRun, needText: '이번 회차 안료',
       raw: (s) => 2 * Math.sqrt(s.pigRun / 30) * pw(1.5, lv(s.zup, 'fold')) },
-    { id: 6, name: '정착', cur: '등불', icon: 'lantern', seen: (s) => s.ms >= 16 || s.flags.l6Done > 0, need: 20, prog: (s) => s.foldRun, needText: '이번 정착까지 겹',
+    { id: 6, name: '정착', cur: '등불', icon: 'lantern', seen: (s) => s.ms >= 16 || s.flags.l6Done > 0, need: 20, prog: (s) => s.foldRun, needText: '이번 회차 안개',
       raw: (s) => 2 * Math.sqrt(s.foldRun / 20) * pw(1.5, lv(s.lup, 'lantern')) * (s.ms >= 17 ? 1.5 : 1) * (s.ms >= 20 ? 2 : 1) },
   ];
   G.L.forEach((L) => { if (L) L.gain = (s) => Math.floor(L.raw(s)); });
@@ -219,7 +230,7 @@
   G.addArch = addArch;
   G.hire = function (id) {
     const c = G.hireCost(id);
-    if (G.s.shards < c || !G.shapeUnlocked(id)) return false;
+    if (G.s.shards < c || !G.shapeUnlocked(id) || G.capFull()) return false;
     G.s.shards -= c;
     addArch(id, 0, false);
     G.computeMult();
@@ -266,7 +277,7 @@
     const s = G.s;
     if (G.autoOn('a_hire')) {
       let best = null, bc = Infinity;
-      for (const sh of T.SHAPES) if (G.shapeUnlocked(sh.id)) { const c = G.hireCost(sh.id); if (c < bc) { bc = c; best = sh.id; } }
+      if (!G.capFull()) for (const sh of T.SHAPES) if (G.shapeUnlocked(sh.id)) { const c = G.hireCost(sh.id); if (c < bc) { bc = c; best = sh.id; } }
       if (best && s.shards >= bc) G.hire(best);
     }
     if (G.autoOn('a_level')) {
@@ -315,23 +326,32 @@
   G.serialize = function () { G.s.last = Date.now(); return JSON.stringify(G.s); };
   G.save = function () { if (T.main && T.main.noSave) return; try { localStorage.setItem(SAVE_KEY, G.serialize()); } catch (e) { /* storage full */ } };
   G.load = function (str) {
-    const raw = str || localStorage.getItem(SAVE_KEY);
+    let raw = str || localStorage.getItem(SAVE_KEY);
+    if (!raw && !str) { raw = localStorage.getItem('tessera-save-v3'); if (raw) G.migrated = true; }
     if (!raw) { G.oldSave = !!(localStorage.getItem('tessera-save-v2') || localStorage.getItem('tessera-save-v1')); return false; }
     try {
       const d = JSON.parse(raw);
-      if (d.v !== 3) return false;
+      if (d.v === 3) migrate3(d);
+      if (d.v !== 4) return false;
       const base = defaultState();
       for (const k in base) if (d[k] === undefined) d[k] = base[k];
       d.flags = Object.assign(base.flags, d.flags);
       d.stats = Object.assign(base.stats, d.stats);
       d.settings = Object.assign(base.settings, d.settings);
+      d.settings.vol = Object.assign(defaultState().settings.vol, d.settings.vol);
       G.s = d;
       return true;
     } catch (e) { console.warn('load failed', e); return false; }
   };
+  // v3 → v4: finished structures keep their reward state; everything else carries over
+  function migrate3(d) {
+    for (const st of d.structs || []) if (st.f === null) st.fin = 1;
+    d.variants = d.variants || {};
+    d.v = 4;
+  }
   G.exportSave = () => btoa(unescape(encodeURIComponent(G.serialize())));
   G.importSave = function (b64) {
-    try { const str = decodeURIComponent(escape(atob(b64.trim()))); if (JSON.parse(str).v !== 3) return false; localStorage.setItem(SAVE_KEY, str); return true; }
+    try { const str = decodeURIComponent(escape(atob(b64.trim()))); const d = JSON.parse(str); if (d.v === 3) migrate3(d); if (d.v !== 4) return false; localStorage.setItem(SAVE_KEY, JSON.stringify(d)); return true; }
     catch (e) { return false; }
   };
   G.wipe = function () { localStorage.removeItem(SAVE_KEY); location.reload(); };
