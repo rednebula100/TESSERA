@@ -317,8 +317,9 @@
     await anim(1200, (k) => { g.drawImage(snap, 0, 0); g.globalAlpha = ease(k); frame(1, '#f2e6cf'); g.globalAlpha = 1; });
     // 2. three quick days pass behind the frame
     await anim(2200, (k) => {
-      const d = (k * 3) % 1, night = Math.max(0, Math.cos(d * Math.PI * 2)) ;
-      const sky = `rgb(${Math.round(242 - 200 * night)},${Math.round(230 - 196 * night)},${Math.round(207 - 140 * night)})`;
+      const d = (k * 3) % 1, night = (1 - Math.cos(d * Math.PI * 2)) / 2;
+      const dusk = Math.max(0, 1 - Math.abs(night - 0.5) * 4) * 0.6;
+      const sky = `rgb(${Math.round(242 - 200 * night + 20 * dusk)},${Math.round(230 - 190 * night - 40 * dusk)},${Math.round(207 - 130 * night - 60 * dusk)})`;
       frame(1, sky);
       g.fillStyle = night > 0.5 ? '#f4f1de' : '#ffd36b';
       const ax = W * (0.1 + 0.8 * d), ay = H * (0.16 - Math.sin(d * Math.PI) * 0.1);

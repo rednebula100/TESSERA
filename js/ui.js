@@ -61,6 +61,7 @@
       const prog = L.prog(s);
       el.querySelector('.seal-bar i').style.width = (prog <= 0 ? 0 : T.clamp(Math.log10(1 + prog) / Math.log10(1 + L.need), 0, 1) * 100).toFixed(1) + '%';
       const ready = T.G.canReset(n);
+      if (ready && !el.classList.contains('ready')) { el.classList.remove('bounce'); void el.offsetWidth; el.classList.add('bounce'); T.audio.play('ready'); }
       el.classList.toggle('ready', ready);
       el.querySelector('.seal-txt').innerHTML = ready ? `지금 하면 ${ic(L.icon)} <b>+${fmt(L.gain(s))}</b>` : `${L.needText} ${fmt(prog)} / ${fmt(L.need)}`;
     }
