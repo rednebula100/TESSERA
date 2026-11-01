@@ -47,9 +47,10 @@
   // highest primitive blueprint tier opened by milestones
   G.maxTier = () => { let t = 0; T.TIER_MS.forEach((m, i) => { if (G.s.ms >= m) t = i; }); return t; };
   G.fever = () => (G.s.event && G.s.event.t > 0 ? 3 : 1);
+  // 명성: each recorded design +10%, each repeat +0.4% (up to 25 per design). additive so it stays bounded
   G.fame = function () {
     let m = 1;
-    for (const id in G.s.bps.done) if (G.s.bps.done[id] > 0) m *= 1.1 * pw(1.02, Math.min(G.s.bps.done[id] - 1, 25));
+    for (const id in G.s.bps.done) if (G.s.bps.done[id] > 0) m += 0.1 + 0.004 * Math.min(G.s.bps.done[id] - 1, 25);
     return m;
   };
   G.coverage = function () {
@@ -57,41 +58,46 @@
     for (const st of G.s.structs) { if (st.f !== null || st.src === 'grave') continue; const n = T.st.count(st); tot += n; p += T.st.paintedFrac(st) * n; }
     return tot ? p / tot : 0;
   };
+  // holding bonus: logarithmic, so piling up a currency never feeds back into itself
+  G.hold = (x, p) => pw(1 + Math.log10(1 + Math.max(0, x)), p);
+  const ad = (a, l) => 1 + a * l;
   G.computeMult = function () {
     const s = G.s;
-    let m = pw(1.5, lv(s.up, 'eye'));
-    m *= Math.sqrt(1 + s.vertices) * pw(1 + s.grains, 0.5) * pw(1 + s.prisms, 0.6) * pw(1 + s.pigments, 0.7) * pw(1 + s.folds, 0.75) * pw(1 + s.lanterns, 0.8);
-    m *= pw(2, lv(s.vup, 'bless')) * pw(3, lv(s.sup, 'sharp')) * pw(3, lv(s.pup, 'spectrum')) * pw(4, lv(s.gup, 'all'));
-    m *= pw(1.6, lv(s.zup, 'depth')) * pw(1.5, G.layers() - 1) * pw(4, lv(s.lup, 'lshard')) * pw(6, lv(s.mup, 'm_shard'));
-    if (s.pup.harmony) m *= pw(1.5, new Set(s.archs.map((a) => a.s)).size);
-    m *= G.fame() * T.msShardMult(s.ms) * pw(2.5, s.era) * G.fever();
+    let m = ad(0.4, lv(s.up, 'eye'));
+    m *= G.hold(s.vertices, 1) * G.hold(s.grains, 1.1) * G.hold(s.prisms, 1.2) * G.hold(s.pigments, 1.3) * G.hold(s.folds, 1.4) * G.hold(s.lanterns, 1.5);
+    m *= ad(1, lv(s.vup, 'bless')) * ad(1, lv(s.sup, 'sharp')) * ad(1.5, lv(s.pup, 'spectrum')) * ad(2, lv(s.gup, 'all'));
+    m *= ad(0.75, lv(s.zup, 'depth')) * pw(1.25, G.layers() - 1) * ad(2, lv(s.lup, 'lshard')) * ad(1.5, lv(s.mup, 'm_shard'));
+    if (s.pup.harmony) m *= pw(1.25, new Set(s.archs.map((a) => a.s)).size);
+    m *= G.fame() * T.msShardMult(s.ms) * pw(1.5, s.era) * G.fever();
     if (s.flags.l4Done) m *= 1 + 2 * G.coverage();
     G.M = m;
     return m;
   };
-  G.lvlMult = (l) => (1 + 0.4 * l) * pw(2, Math.floor(l / 10));
+  G.lvlMult = (l) => (1 + 0.5 * l) * pw(2, Math.floor(l / 10));
   G.blockValue = (d) => (T.SHAPE[d.s].value + lv(G.s.up, 'solid')) * G.lvlMult(d.lvl || 0) * G.M;
   G.bestValue = function () { let b = (1 + lv(G.s.up, 'solid')) * G.M; for (const a of G.s.archs) b = Math.max(b, G.blockValue(a)); return b; };
   G.passive = function () { let r = 0; for (const a of G.s.archs) r += G.blockValue(a) / G.cooldown(a); return r; };
   G.petDur = () => 10 * pw(2, lv(G.s.vup, 'pet'));
   G.cooldown = function (d, petted, team = 1, happy = 0) {
     const s = G.s;
-    let cd = T.SHAPE[d.s].cd * pw(0.92, lv(s.up, 'quick')) * pw(0.94, lv(s.mup, 'm_cd'));
+    let cd = T.SHAPE[d.s].cd / (ad(0.1, lv(s.up, 'quick')) * ad(0.06, lv(s.mup, 'm_cd')));
     if (petted) cd *= s.vup.pet ? 0.55 : 0.7;
     if (team > 1) cd *= Math.max(0.5, 1 - 0.04 * lv(s.up, 'team') * (team - 1));
     if (G.fever() > 1) cd *= 0.7;
     cd /= 1 + happy * 0.5;
     return Math.max(0.3, cd);
   };
-  G.walkSpeed = () => 24 * (1 + 0.25 * lv(G.s.up, 'walk')) * pw(1.3, lv(G.s.vup, 'legs'));
-  G.throwRange = () => 46 * (1 + 0.3 * lv(G.s.up, 'arm')) * pw(1.3, lv(G.s.vup, 'legs'));
+  // small, capped steps: fully upgraded builders walk ×1.56 and throw ×1.70 at most
+  G.walkSpeed = () => 24 * ad(0.1, Math.min(3, lv(G.s.up, 'walk'))) * ad(0.1, Math.min(2, lv(G.s.vup, 'legs')));
+  G.throwRange = () => 46 * ad(0.12, Math.min(3, lv(G.s.up, 'arm'))) * ad(0.1, Math.min(2, lv(G.s.vup, 'legs')));
   G.clickCD = () => 0.7 * pw(0.9, lv(G.s.up, 'tap')) * (G.s.ms >= 8 ? 0.7 : 1);
-  // click value is soft-capped against what the builders make, so clicking never dwarfs the game
+  // click value follows what the builders make (seconds of their output), so clicking never dwarfs the game
+  // and no cap is needed: 0.25s at first, approaching 1s with 손재주
+  G.clickSecs = (l = lv(G.s.up, 'hand')) => 0.25 + 0.75 * (1 - pw(0.8, l));
   G.clickValue = function () {
     const s = G.s;
-    const raw = (1 + lv(s.up, 'solid')) * pw(2, lv(s.up, 'hand')) * G.M;
-    const cap = Math.max((1 + lv(s.up, 'solid')) * G.M * 3, G.passive() * 0.6);
-    return T.softcap(raw, cap, 0.3);
+    const base = (1 + lv(s.up, 'solid')) * (1 + lv(s.up, 'hand')) * G.M;
+    return Math.max(base, G.passive() * G.clickSecs());
   };
   G.carveCD = () => 1.1 * pw(0.8, lv(G.s.sup, 'carve'));
   G.paintCD = () => 1.4 * pw(0.8, lv(G.s.gup, 'brush'));
@@ -106,8 +112,8 @@
     return c;
   };
   G.capFull = () => G.s.archs.length >= G.archCap();
-  G.hireCost = (id) => { const sh = T.SHAPE[id]; const n = G.owned(id); return sh.cost * pw(sh.growth, n) * pw(1.25, n * n * 0.25); };
-  G.levelCost = (d) => T.SHAPE[d.s].cost * 0.5 * pw(1.5, d.lvl) * pw(1.01, d.lvl * d.lvl);
+  G.hireCost = (id) => { const sh = T.SHAPE[id]; const n = G.owned(id); return sh.cost * pw(sh.growth, n) * pw(1.1, n * n * 0.25); };
+  G.levelCost = (d) => T.SHAPE[d.s].cost * 0.5 * pw(1.42, d.lvl) * pw(1.01, d.lvl * d.lvl);
   G.bpSlots = () => 1 + lv(G.s.vup, 'shelf');
   G.focus = () => 0.6 + 0.08 * lv(G.s.up, 'focus');
   G.luckyChance = () => 0.01 * lv(G.s.vup, 'lucky');
@@ -118,17 +124,17 @@
   G.L = [
     null,
     { id: 1, name: '재구성', cur: '꼭짓점', icon: 'vertex', seen: (s) => s.ms >= 3 || s.flags.l1Done > 0, need: 1e6, prog: (s) => s.runEarned, needText: '이번 회차 조각',
-      raw: (s) => 3 * Math.sqrt(s.runEarned / 1e6) * pw(1.25, lv(s.up, 'omen')) * pw(1.5, lv(s.vup, 'res')) * pw(2, lv(s.pup, 'refr')) * (s.ms >= 5 ? 1.5 : 1) },
+      raw: (s) => 3 * T.taper(s.runEarned / 1e6, 0.5, 24) * ad(0.2, lv(s.up, 'omen')) * ad(0.3, lv(s.vup, 'res')) * ad(0.5, lv(s.pup, 'refr')) * (s.ms >= 5 ? 1.5 : 1) },
     { id: 2, name: '다듬기', cur: '결', icon: 'chisel', seen: (s) => s.ms >= 6 || s.flags.l2Done > 0, need: 100, prog: (s) => s.vertsRun, needText: '이번 회차 꼭짓점',
-      raw: (s) => 3 * pw(s.vertsRun / 100, 0.7) * pw(1.5, lv(s.sup, 'grain')) * pw(2, lv(s.pup, 'refr')) },
+      raw: (s) => 3 * T.taper(s.vertsRun / 100, 0.4, 16) * ad(0.3, lv(s.sup, 'grain')) },
     { id: 3, name: '굴절', cur: '프리즘', icon: 'prism', seen: (s) => s.ms >= 9 || s.flags.l3Done > 0, need: 30, prog: (s) => s.grainRun, needText: '이번 회차 결',
-      raw: (s) => 2 * pw(s.grainRun / 30, 0.6) * pw(2, lv(s.gup, 'prismX')) * (s.ms >= 11 ? 1.5 : 1) },
+      raw: (s) => 2 * T.taper(s.grainRun / 30, 0.35, 12) * ad(0.3, lv(s.gup, 'prismX')) * (s.ms >= 11 ? 1.5 : 1) },
     { id: 4, name: '물들임', cur: '안료', icon: 'pigment', seen: (s) => s.ms >= 12 || s.flags.l4Done > 0, need: 30, prog: (s) => s.prismsRun, needText: '이번 회차 프리즘',
-      raw: (s) => 2 * pw(s.prismsRun / 30, 0.6) },
+      raw: (s) => 2 * T.taper(s.prismsRun / 30, 0.35, 12) },
     { id: 5, name: '겹치기', cur: '안개', icon: 'layers', seen: (s) => s.ms >= 14 || s.flags.l5Done > 0, need: 30, prog: (s) => s.pigRun, needText: '이번 회차 안료',
-      raw: (s) => 2 * Math.sqrt(s.pigRun / 30) * pw(1.5, lv(s.zup, 'fold')) },
+      raw: (s) => 2 * T.taper(s.pigRun / 30, 0.3, 10) * ad(0.3, lv(s.zup, 'fold')) },
     { id: 6, name: '정착', cur: '등불', icon: 'lantern', seen: (s) => s.ms >= 16 || s.flags.l6Done > 0, need: 20, prog: (s) => s.foldRun, needText: '이번 회차 안개',
-      raw: (s) => 2 * Math.sqrt(s.foldRun / 20) * pw(1.5, lv(s.lup, 'lantern')) * (s.ms >= 17 ? 1.5 : 1) * (s.ms >= 20 ? 2 : 1) },
+      raw: (s) => 2 * T.taper(s.foldRun / 20, 0.3, 10) * ad(0.3, lv(s.lup, 'lantern')) * (s.ms >= 17 ? 1.5 : 1) * (s.ms >= 20 ? 2 : 1) },
   ];
   G.L.forEach((L) => { if (L) L.gain = (s) => Math.floor(L.raw(s)); });
   G.canReset = (n) => G.L[n].prog(G.s) >= G.L[n].need && G.L[n].gain(G.s) >= 1;

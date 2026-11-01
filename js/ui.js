@@ -331,12 +331,12 @@
     const s = S();
     const meta = [
       ['작업장', 'shard', '작은 손들을 위한 작은 개선. 이번 회차에만 유지됩니다. 버튼을 꾹 누르면 점점 빠르게 연속으로 삽니다.', null],
-      ['꼭짓점 공방', 'vertex', '허문 블록의 모서리를 모아 둔 공방. 재구성해도 사라지지 않습니다.', () => `보유 꼭짓점 효과: 조각 ×<b>${fmt(Math.sqrt(1 + s.vertices))}</b>`],
-      ['석공소', 'grain', '블록을 결대로 다듬는 석공들의 작업장. 다듬기를 다시 해도 유지됩니다.', () => `다듬은 정도 ${(avgSplit() * 100).toFixed(1)}%  보유 결 효과: 조각 ×<b>${fmt(Math.pow(1 + s.grains, 0.5))}</b>`],
-      ['프리즘 실험실', 'prism', '빛을 갈라 다시 모으는 실험실. 굴절해도 유지됩니다.', () => `보유 프리즘 효과: 조각 ×<b>${fmt(Math.pow(1 + s.prisms, 0.6))}</b>`],
+      ['꼭짓점 공방', 'vertex', '허문 블록의 모서리를 모아 둔 공방. 재구성해도 사라지지 않습니다.', () => `보유 꼭짓점 효과: 조각 ×<b>${fmt(T.G.hold(s.vertices, 1))}</b>`],
+      ['석공소', 'grain', '블록을 결대로 다듬는 석공들의 작업장. 다듬기를 다시 해도 유지됩니다.', () => `다듬은 정도 ${(avgSplit() * 100).toFixed(1)}%  보유 결 효과: 조각 ×<b>${fmt(T.G.hold(s.grains, 1.1))}</b>`],
+      ['프리즘 실험실', 'prism', '빛을 갈라 다시 모으는 실험실. 굴절해도 유지됩니다.', () => `보유 프리즘 효과: 조각 ×<b>${fmt(T.G.hold(s.prisms, 1.2))}</b>`],
       ['아틀리에', 'pigment', '방울 주민들이 다듬어진 칸을 하나하나 칠합니다. 걸어 다닌 땅에도 물감이 스며듭니다.', () => `채색 ${(T.G.coverage() * 100).toFixed(1)}% → 조각 ×${(1 + 2 * T.G.coverage()).toFixed(2)}`],
-      ['층계', 'fold', '세상 뒤에 세상을 겹치는 층계. 겹치기를 다시 해도 유지됩니다.', () => `${T.G.layers()}겹, 보유 안개 효과: 조각 ×<b>${fmt(Math.pow(1 + s.folds, 0.75))}</b>`],
-      ['등불 회관', 'lantern', '정착한 마을의 회관. 정착을 다시 해도 유지됩니다.', () => `보유 등불 효과: 조각 ×<b>${fmt(Math.pow(1 + s.lanterns, 0.8))}</b>`],
+      ['층계', 'fold', '세상 뒤에 세상을 겹치는 층계. 겹치기를 다시 해도 유지됩니다.', () => `${T.G.layers()}겹, 보유 안개 효과: 조각 ×<b>${fmt(T.G.hold(s.folds, 1.4))}</b>`],
+      ['등불 회관', 'lantern', '정착한 마을의 회관. 정착을 다시 해도 유지됩니다.', () => `보유 등불 효과: 조각 ×<b>${fmt(T.G.hold(s.lanterns, 1.5))}</b>`],
       ['물자 창고', 'goods', '일꾼들이 만든 물자로 일을 자동화하고 업그레이드를 지킵니다. 어떤 리셋에도 사라지지 않습니다.', () => `일꾼 ${s.workers.length}명, 초당 물자 약 ${fmt((s.workers.length * T.vil.goodsRate()) / 3)}`],
     ][store];
     if (store > 0) body.appendChild(T.h(`<div class="layer-head l${store}"><div class="lh-ic">${ic(meta[1])}</div><div><div class="lh-name">${meta[0]}</div><div class="lh-desc">${meta[2]}</div></div></div>`));

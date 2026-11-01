@@ -412,7 +412,7 @@
         i = T.st.nextCarve(st);
       }
       S().stats.carved += total;
-      T.G.earn(T.G.bestValue() * 0.04 * total * Math.pow(2, S().sup.sharp || 0));
+      T.G.earn(T.G.bestValue() * 0.04 * total * (1 + (S().sup.sharp || 0)));
       if (Math.random() < 0.3) T.audio.chip();
       return total;
     }, '다듬을 게 없네');
@@ -432,7 +432,7 @@
         i = T.st.nextPaint(st);
       }
       S().stats.paintBlocks += total;
-      T.G.earn(T.G.bestValue() * 0.05 * total * 4 * Math.pow(2, S().gup.dense || 0));
+      T.G.earn(T.G.bestValue() * 0.05 * total * (2 + (S().gup.dense || 0)));
       return total;
     }, '칠할 게 없네');
   }

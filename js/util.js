@@ -5,6 +5,9 @@ const T = (window.T = {});
 T.B = 8; // block size in world units
 T.YC = 320; // common pattern center height
 
+// tapering power curve for reset gains: ratio^e near the start, the exponent shrinks smoothly as the ratio grows
+// (every extra power of ten is worth a bit less than the last). no break points, no caps.
+T.taper = (ratio, e, k) => { if (ratio <= 0) return 0; const L = Math.log10(ratio); return L <= 0 ? Math.pow(ratio, e) : Math.pow(10, (e * L) / (1 + L / k)); };
 T.clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 T.lerp = (a, b, t) => a + (b - a) * t;
 T.easeOut = (t) => 1 - Math.pow(1 - t, 3);

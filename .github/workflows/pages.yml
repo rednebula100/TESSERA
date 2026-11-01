@@ -25,6 +25,10 @@ jobs:
           node-version: 20
       - name: Syntax-check game scripts
         run: for f in js/*.js; do node --check "$f" || exit 1; done
+      - name: Content check (tiers match sizes, milestone rewards, banned words)
+        run: node tools/check.js
+      - name: Balance check (upper-bound model on the real formulas)
+        run: node tools/balance.js --check --quiet
       - name: Verify referenced files exist
         run: |
           grep -oE '(src|href)="[^"#:]+"' index.html | sed -E 's/.*="([^"]+)"/\1/' | while read -r f; do
@@ -44,7 +48,7 @@ jobs:
       - name: Assemble site
         run: |
           mkdir _site
-          cp -r index.html css js vendor docs .nojekyll _site/
+          cp -r index.html css js vendor docs audio .nojekyll _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
